@@ -59,6 +59,7 @@ from game.world.opcode_handling.handlers.loot.LootMoneyHandler import LootMoneyH
 from game.world.opcode_handling.handlers.loot.LootReleaseHandler import LootReleaseHandler
 from game.world.opcode_handling.handlers.loot.LootRequestHandler import LootRequestHandler
 from game.world.opcode_handling.handlers.npc.ActivateTaxiHandler import ActivateTaxiHandler
+from game.world.opcode_handling.handlers.npc.TaxiNodeStatusQueryHandler import TaxiNodeStatusQueryHandler
 from game.world.opcode_handling.handlers.npc.BankerActivateHandler import BankerActivateHandler
 from game.world.opcode_handling.handlers.npc.BinderActivateHandler import BinderActivateHandler
 from game.world.opcode_handling.handlers.npc.BuyBankSlotHandler import BuyBankSlotHandler
@@ -103,6 +104,7 @@ from game.world.opcode_handling.handlers.player.cheats.LevelUpCheatHandler impor
 from game.world.opcode_handling.handlers.player.cheats.LearnSpellCheatHandler import LearnSpellCheatHandler
 from game.world.opcode_handling.handlers.player.cheats.TriggerCinematicCheatHandler import TriggerCinematicCheatHandler
 from game.world.opcode_handling.handlers.player.SetActionButtonHandler import SetActionButtonHandler
+from game.world.opcode_handling.handlers.player.NewSpellSlotHandler import NewSpellSlotHandler
 from game.world.opcode_handling.handlers.quest.QuestGiverAcceptQuestHandler import QuestGiverAcceptQuestHandler
 from game.world.opcode_handling.handlers.quest.QuestGiverChooseRewardHandler import QuestGiverChooseRewardHandler
 from game.world.opcode_handling.handlers.quest.QuestGiverCompleteQuestHandler import QuestGiverCompleteQuestHandler
@@ -211,6 +213,7 @@ HANDLER_DEFINITIONS = {
     OpCode.CMSG_TRAINER_LIST: TrainerListHandler.handle,
     OpCode.CMSG_TRAINER_BUY_SPELL: TrainerBuySpellHandler.handle,
     OpCode.CMSG_TAXIQUERYAVAILABLENODES: TaxiQueryNodesHandler.handle,
+    OpCode.CMSG_TAXINODE_STATUS_QUERY: TaxiNodeStatusQueryHandler.handle,
     OpCode.CMSG_ACTIVATETAXI: ActivateTaxiHandler.handle,
     OpCode.CMSG_CAST_SPELL: CastSpellHandler.handle,
     OpCode.CMSG_CANCEL_AURA: CancelAuraHandler.handle,
@@ -283,6 +286,7 @@ HANDLER_DEFINITIONS = {
     OpCode.CMSG_BANKER_ACTIVATE: BankerActivateHandler.handle,
     OpCode.CMSG_BUY_BANK_SLOT: BuyBankSlotHandler.handle,
     OpCode.CMSG_SET_ACTION_BUTTON: SetActionButtonHandler.handle,
+    OpCode.CMSG_NEW_SPELL_SLOT: NewSpellSlotHandler.handle,
 
     # Movement packets
     OpCode.MSG_MOVE_HEARTBEAT: MovementHandler.handle_movement_status,
