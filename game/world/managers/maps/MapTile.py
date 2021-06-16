@@ -18,6 +18,7 @@ class MapTile(object):
         self.area_terrain = [[0 for r in range(0, RESOLUTION_TERRAIN + 1)] for c in range(0, RESOLUTION_TERRAIN + 1)]
         self.water_level = [[0 for r in range(0, RESOLUTION_WATER + 1)] for c in range(0, RESOLUTION_WATER + 1)]
         self.z_coords = [[0 for r in range(0, RESOLUTION_ZMAP + 1)] for c in range(0, RESOLUTION_ZMAP + 1)]
+        
         self.load()
 
     def load(self):
