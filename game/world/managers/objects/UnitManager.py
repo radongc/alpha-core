@@ -502,6 +502,13 @@ class UnitManager(ObjectManager):
         MapManager.send_surrounding(packet, target, include_self=target.get_type() == ObjectTypes.TYPE_PLAYER)
         self.deal_damage(target, damage)
 
+    def deal_spell_healing(self, target, healing, school, spell_id):
+        data = pack('<IQQIIfiii', 0, self.guid, target.guid, spell_id,
+                    healing, healing, school, healing, 0)
+        packet = PacketWriter.get_packet(OpCode.SMSG_ATTACKERSTATEUPDATEDEBUGINFOSPELL, data)
+        MapManager.send_surrounding(packet, target, include_self=target.get_type() == ObjectTypes.TYPE_PLAYER)
+        target.receive_healing(healing, self)
+
     def set_current_target(self, guid):
         self.current_target = guid
         self.set_uint64(UnitFields.UNIT_FIELD_TARGET, guid)
