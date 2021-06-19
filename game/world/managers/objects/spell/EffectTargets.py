@@ -40,6 +40,7 @@ class EffectTargets:
         target_is_player = self.casting_spell.initial_target_is_player()
         target_is_gameobject = self.casting_spell.initial_target_is_gameobject()
         target_is_item = self.casting_spell.initial_target_is_item()
+        target_is_terrain = self.casting_spell.initial_target_is_terrain()
         target_is_friendly = self.casting_spell.initial_target_is_unit_or_player() and \
             self.caster.is_friendly_to(self.casting_spell.initial_target)
 
@@ -312,6 +313,13 @@ class EffectTargets:
     def resolve_gameobject_script_near_caster(casting_spell, target_effect):
         Logger.warning(f'Unimlemented implicit target called for spell {casting_spell.spell_entry.ID}')
 
+    @staticmethod
+    def resolve_location_leap(casting_spell, target_effect):
+        target = casting_spell.initial_target
+        if not casting_spell.initial_target_is_terrain():
+            return []
+        
+        return target
 
 TARGET_RESOLVERS = {
     SpellImplicitTargets.TARGET_RANDOM_ENEMY_CHAIN_IN_AREA: EffectTargets.resolve_random_enemy_chain_in_area,
@@ -333,7 +341,8 @@ TARGET_RESOLVERS = {
     SpellImplicitTargets.TARGET_SINGLE_PARTY: EffectTargets.resolve_single_party,
     SpellImplicitTargets.TARGET_AREAEFFECT_PARTY: EffectTargets.resolve_aoe_party,
     SpellImplicitTargets.TARGET_SCRIPT: EffectTargets.resolve_script,
-    SpellImplicitTargets.TARGET_GAMEOBJECT_SCRIPT_NEAR_CASTER: EffectTargets.resolve_gameobject_script_near_caster
+    SpellImplicitTargets.TARGET_GAMEOBJECT_SCRIPT_NEAR_CASTER: EffectTargets.resolve_gameobject_script_near_caster,
+    SpellImplicitTargets.TARGET_LOCATION_LEAP: EffectTargets.resolve_location_leap
 }
 
 FRIENDLY_IMPLICIT_TARGETS = [

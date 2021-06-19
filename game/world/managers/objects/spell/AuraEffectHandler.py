@@ -97,6 +97,16 @@ class AuraEffectHandler:
         aura.caster.deal_spell_damage(aura.target, damage, spell.spell_entry.School, spell.spell_entry.ID)
         # TODO Heal
 
+    @staticmethod
+    def handle_state_immunity(aura, remove):
+        if aura.target.get_type() != ObjectTypes.TYPE_PLAYER:
+            return
+
+        if remove:
+            aura.target.is_god = False
+        else:
+            aura.target.is_god = True
+
 
 AURA_EFFECTS = {
     AuraTypes.SPELL_AURA_MOD_SHAPESHIFT: AuraEffectHandler.handle_shapeshift,
@@ -106,6 +116,7 @@ AURA_EFFECTS = {
     AuraTypes.SPELL_AURA_PERIODIC_HEAL: AuraEffectHandler.handle_periodic_healing,
     AuraTypes.SPELL_AURA_PERIODIC_DAMAGE: AuraEffectHandler.handle_periodic_damage,
     AuraTypes.SPELL_AURA_PERIODIC_LEECH: AuraEffectHandler.handle_periodic_leech,
+    AuraTypes.SPELL_AURA_STATE_IMMUNITY: AuraEffectHandler.handle_state_immunity
 }
 
 # Alliance / Default display_id, Horde display_id, Scale

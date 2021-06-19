@@ -1,9 +1,17 @@
+from __future__ import annotations
+ #REMOVE THIS & TYPE HINTING BEFORE PR
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from game.world.managers.objects.spell.SpellManager import SpellManager
+    from game.world.managers.objects.spell.CastingSpell import CastingSpell
+    from game.world.managers.objects.player.PlayerManager import PlayerManager
+
 from database.world.WorldDatabaseManager import WorldDatabaseManager
 from game.world.managers.objects.player.DuelManager import DuelManager
 from game.world.managers.objects.spell.AuraManager import AppliedAura
 from utils.Logger import Logger
 from utils.constants.MiscCodes import ObjectTypes, HighGuid
-from utils.constants.SpellCodes import SpellCheckCastResult, AuraTypes, SpellEffects, SpellState
+from utils.constants.SpellCodes import SpellCastFlags, SpellCheckCastResult, AuraTypes, SpellEffects, SpellState
 from utils.constants.UnitCodes import PowerTypes, UnitFlags, MovementTypes
 
 
@@ -137,6 +145,34 @@ class SpellEffectHandler(object):
         return
 
     @staticmethod
+    def handle_leap(casting_spell: CastingSpell, effect, caster: PlayerManager, target): # Blink, Charge (alpha)
+        resolved_targets = effect.targets.resolved_targets_a
+        if not resolved_targets or len(resolved_targets) == 0:
+            return
+            
+        teleport_info = resolved_targets[0]
+
+        from game.world.managers.abstractions.Vector import Vector
+        teleport_dest_final = Vector(teleport_info.x, teleport_info.y, teleport_info.z, caster.location.o)
+        
+        if caster.location.distance(teleport_dest_final) <= casting_spell.range_entry.RangeMax:
+            caster.teleport(caster.map_, teleport_dest_final)
+        else: # If too far away, teleport player in the same direction at max dist possible
+            from_loc = caster.location
+            to_loc = teleport_dest_final
+
+            d1 = from_loc.distance(to_loc)
+            d2 = casting_spell.range_entry.RangeMax
+
+            tele_point_x = from_loc.x - ((d2 * (from_loc.x - to_loc.x)) / d1)
+            tele_point_y = from_loc.y - ((d2 * (from_loc.y - to_loc.y)) / d1)
+            tele_point_z = Vector.calculate_z(tele_point_x, tele_point_y, caster.map_, to_loc.z) # In order for this to work properly, map tiles must be used
+
+            adjusted_teleport_dest = Vector(tele_point_x, tele_point_y, tele_point_z, from_loc.o)
+
+            caster.teleport(caster.map_, adjusted_teleport_dest)
+
+    @staticmethod
     def handle_apply_area_aura(casting_spell, effect, caster, target):  # Paladin auras, healing stream totem etc.
         casting_spell.cast_state = SpellState.SPELL_STATE_ACTIVE
 
@@ -226,6 +262,7 @@ SPELL_EFFECTS = {
     SpellEffects.SPELL_EFFECT_PERSISTENT_AREA_AURA: SpellEffectHandler.handle_persistent_area_aura,
     SpellEffects.SPELL_EFFECT_OPEN_LOCK: SpellEffectHandler.handle_open_lock,
     SpellEffects.SPELL_EFFECT_LEARN_SPELL: SpellEffectHandler.handle_learn_spell,
+    SpellEffects.SPELL_EFFECT_LEAP: SpellEffectHandler.handle_leap,
     SpellEffects.SPELL_EFFECT_APPLY_AREA_AURA: SpellEffectHandler.handle_apply_area_aura,
     SpellEffects.SPELL_EFFECT_SUMMON_TOTEM: SpellEffectHandler.handle_summon_totem
 }

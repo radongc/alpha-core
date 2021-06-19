@@ -553,6 +553,7 @@ class SpellImplicitTargets(IntEnum):
     TARGET_SCRIPT = 38
     TARGET_SELF_FISHING = 39  # Equip a fishing pole and find a body of water to fish.
     TARGET_GAMEOBJECT_SCRIPT_NEAR_CASTER = 40  # 7728, 7729
+    TARGET_LOCATION_LEAP = 55 # Blink, Charge
 
 class SpellMissInfo(IntEnum):
     MISS_NONE = 0x0
