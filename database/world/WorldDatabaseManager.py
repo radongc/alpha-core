@@ -4,8 +4,6 @@ from difflib import SequenceMatcher
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.orm import query
-from sqlalchemy.orm.query import Query
 
 from database.world.WorldModels import *
 from utils.ConfigManager import *
@@ -335,17 +333,11 @@ class WorldDatabaseManager(object):
     # Trainer stuff
 
     class TrainerSpellHolder:
-        TRAINER_SPELLS: dict[int, NpcTrainer] = {}
+        TRAINER_SPELLS: dict[tuple[int, int], NpcTrainer] = {}
 
         @staticmethod
         def load_trainer_spell(trainer_spell: NpcTrainer):
-            WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS[trainer_spell.spell] = trainer_spell
-        
-        @staticmethod
-        def trainer_spell_get_by_spell(spell_id: int):
-            if spell_id in WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS:
-                return WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS[spell_id]
-            return None
+            WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS[(trainer_spell.template_entry, trainer_spell.spell)] = trainer_spell
 
     @staticmethod
     def trainer_spell_get_all() -> Optional[list[NpcTrainer]]:
@@ -365,12 +357,12 @@ class WorldDatabaseManager(object):
             if WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS[t_spell].template_entry == trainer_template_id:
                 trainer_spells.append(WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS[t_spell])
 
-        return trainer_spells if not trainer_spells.count == 0 else None
+        return trainer_spells if len(trainer_spells) > 0 else None
 
     @staticmethod
-    def get_trainer_spell_by_id(spell_id: int) -> Optional[NpcTrainer]:
-        return WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS[spell_id] \
-                if spell_id in WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS else None
+    def get_trainer_spell_by_trainer_id_and_spell(trainer_id: int, spell_id: int) -> Optional[NpcTrainer]:
+        return WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS[(trainer_id, spell_id)] \
+                if (trainer_id, spell_id) in WorldDatabaseManager.TrainerSpellHolder.TRAINER_SPELLS else None
 
     # Spell chain / trainer stuff (for chaining together spell ranks)
 
