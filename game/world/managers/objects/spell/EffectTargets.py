@@ -47,7 +47,7 @@ class EffectTargets:
 
         return {
             SpellImplicitTargets.TARGET_NOTHING: [],
-            SpellImplicitTargets.TARGET_SELF: self.caster,
+            #SpellImplicitTargets.TARGET_SELF: self.initial_target if target_is_terrain else self.caster, # May need its own function, some spells have self as the target while still needing complex mechanics
             SpellImplicitTargets.TARGET_PET: [],  # TODO
             SpellImplicitTargets.TARGET_CHAIN_DAMAGE: self.initial_target if not target_is_friendly else [],  # TODO - resolve chain targets
             SpellImplicitTargets.TARGET_INNKEEPER_COORDINATES: self.caster.get_deathbind_coordinates() if target_is_player else [],
@@ -121,6 +121,15 @@ class EffectTargets:
             return []
 
         return [unit for unit in units if caster.group_manager.is_party_member(unit.guid)]
+
+    @staticmethod
+    def resolve_target_self(casting_spell, target_effect):
+        target_is_terrain = casting_spell.initial_target_is_terrain()
+
+        if target_is_terrain and target_effect.effect_type == SpellEffects.SPELL_EFFECT_LEAP:
+            return casting_spell.initial_target
+        else:
+            return casting_spell.spell_caster
 
     @staticmethod
     def resolve_random_enemy_chain_in_area(casting_spell, target_effect):
@@ -323,15 +332,8 @@ class EffectTargets:
     def resolve_gameobject_script_near_caster(casting_spell, target_effect):
         Logger.warning(f'Unimlemented implicit target called for spell {casting_spell.spell_entry.ID}')
 
-    @staticmethod
-    def resolve_location_leap(casting_spell, target_effect):
-        target = casting_spell.initial_target
-        if not casting_spell.initial_target_is_terrain():
-            return []
-        
-        return target
-
 TARGET_RESOLVERS = {
+    SpellImplicitTargets.TARGET_SELF: EffectTargets.resolve_target_self,
     SpellImplicitTargets.TARGET_RANDOM_ENEMY_CHAIN_IN_AREA: EffectTargets.resolve_random_enemy_chain_in_area,
     SpellImplicitTargets.TARGET_UNIT_NEAR_CASTER: EffectTargets.resolve_unit_near_caster,
     SpellImplicitTargets.TARGET_AREAEFFECT_CUSTOM: EffectTargets.resolve_area_effect_custom,
@@ -351,8 +353,7 @@ TARGET_RESOLVERS = {
     SpellImplicitTargets.TARGET_SINGLE_PARTY: EffectTargets.resolve_single_party,
     SpellImplicitTargets.TARGET_AREAEFFECT_PARTY: EffectTargets.resolve_aoe_party,
     SpellImplicitTargets.TARGET_SCRIPT: EffectTargets.resolve_script,
-    SpellImplicitTargets.TARGET_GAMEOBJECT_SCRIPT_NEAR_CASTER: EffectTargets.resolve_gameobject_script_near_caster,
-    SpellImplicitTargets.TARGET_LOCATION_LEAP: EffectTargets.resolve_location_leap
+    SpellImplicitTargets.TARGET_GAMEOBJECT_SCRIPT_NEAR_CASTER: EffectTargets.resolve_gameobject_script_near_caster
 }
 
 FRIENDLY_IMPLICIT_TARGETS = [
