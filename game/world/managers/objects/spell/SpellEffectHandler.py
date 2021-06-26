@@ -157,7 +157,7 @@ class SpellEffectHandler(object):
         
         if caster.location.distance(teleport_dest_final) <= casting_spell.range_entry.RangeMax:
             caster.teleport(caster.map_, teleport_dest_final)
-        else: # If too far away, teleport player in the same direction at max dist possible
+        else: # If target out of bounds, teleport player in the same direction at max dist possible
             from_loc = caster.location
             to_loc = teleport_dest_final
 
@@ -166,7 +166,7 @@ class SpellEffectHandler(object):
 
             tele_point_x = from_loc.x - ((d2 * (from_loc.x - to_loc.x)) / d1)
             tele_point_y = from_loc.y - ((d2 * (from_loc.y - to_loc.y)) / d1)
-            tele_point_z = Vector.calculate_z(tele_point_x, tele_point_y, caster.map_, to_loc.z) # In order for this to work properly, map tiles must be used
+            tele_point_z = Vector.calculate_z(tele_point_x, tele_point_y, caster.map_, to_loc.z) # Maps required TODO vmaps required to work properly on large world obejcts (ex. Stormwind, caves etc.), with maps it only finds ground position.
 
             adjusted_teleport_dest = Vector(tele_point_x, tele_point_y, tele_point_z, from_loc.o)
 

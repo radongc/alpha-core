@@ -126,7 +126,7 @@ class EffectTargets:
     def resolve_target_self(casting_spell, target_effect):
         target_is_terrain = casting_spell.initial_target_is_terrain()
 
-        if target_is_terrain and target_effect.effect_type == SpellEffects.SPELL_EFFECT_LEAP:
+        if target_is_terrain and target_effect.effect_type == SpellEffects.SPELL_EFFECT_LEAP: # Blink 
             return casting_spell.initial_target
         else:
             return casting_spell.spell_caster
