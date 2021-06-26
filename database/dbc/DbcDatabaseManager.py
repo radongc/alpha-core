@@ -115,7 +115,7 @@ class DbcDatabaseManager(object):
             DbcDatabaseManager.SpellHolder.SPELLS[spell.ID] = spell
 
         @staticmethod
-        def spell_get_by_id(spell_id):
+        def spell_get_by_id(spell_id) -> Spell:
             return DbcDatabaseManager.SpellHolder.SPELLS[spell_id] \
                 if spell_id in DbcDatabaseManager.SpellHolder.SPELLS else None
 

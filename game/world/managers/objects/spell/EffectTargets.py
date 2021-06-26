@@ -1,5 +1,6 @@
 import math
 from typing import Union, Optional
+from utils.Formulas import SpellFormulas
 
 from game.world.managers.abstractions.Vector import Vector
 from game.world.managers.maps.MapManager import MapManager
@@ -210,6 +211,8 @@ class EffectTargets:
         result = MapManager.get_surrounding_units(casting_spell.spell_caster, True)
         units = list(result[0].values()) + list(result[1].values())
 
+        uses_target_mask: bool = casting_spell.spell_entry.TargetCreatureType != 0
+
         caster = casting_spell.spell_caster
         units_in_range = []
         for unit in units:
@@ -217,7 +220,14 @@ class EffectTargets:
                 continue
             distance = caster.location.distance(unit.location)
             if distance <= target_effect.get_radius():
-                units_in_range.append(unit)
+                if uses_target_mask:
+                    creature_type_mask = SpellFormulas.creature_type_to_creature_type_mask(unit.creature_type) # If spell has a specified creature type mask (Undead, Humanoid etc ex. Judgement) make sure units match that type)
+                    if creature_type_mask == casting_spell.spell_entry.TargetCreatureType:
+                        units_in_range.append(unit)
+                    else:
+                        continue
+                else:
+                    units_in_range.append(unit)
 
         return units_in_range
 

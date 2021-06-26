@@ -1,6 +1,7 @@
 import math
 
 from utils.constants.MiscCodes import AttackTypes
+from utils.constants.UnitCodes import CreatureTypes
 
 
 class CreatureFormulas(object):
@@ -138,3 +139,10 @@ class PlayerFormulas(object):
             return math.ceil(rew_xp * 0.2)
         else:
             return math.ceil(rew_xp * 0.1)
+
+class SpellFormulas(object):
+
+    @staticmethod
+    def creature_type_to_creature_type_mask(target_creature_type: CreatureTypes): #Resolve dbc TargetCreatureType in spell table to creature type (ex. 32 = 6 (undead))
+        target_type: int = (1 << (target_creature_type - 1))
+        return target_type
