@@ -462,17 +462,6 @@ class SpellManager(object):
             self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_BAD_TARGETS)
             return False
 
-        if casting_spell.initial_target_is_unit_or_player():
-            creature_type_mask = SpellFormulas.creature_type_to_creature_type_mask(casting_spell.initial_target.creature_type) # Creature type (ex. Humanoid - 6) to type mask (ex. Humanoid - 64, Undead - 32)
-            uses_target_type_mask = casting_spell.spell_entry.TargetCreatureType != 0
-
-            if casting_spell.spell_entry.ImplicitTargetA_1 != SpellImplicitTargets.TARGET_ALL_AROUND_CASTER and uses_target_type_mask and creature_type_mask != casting_spell.spell_entry.TargetCreatureType: # Type to mask conversion different from spell dbc type mask
-                if SpellFormulas.creature_type_to_creature_type_mask(CreatureTypes.UNDEAD) == casting_spell.spell_entry.TargetCreatureType:
-                    self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_TARGET_NOT_DEAD)
-                else:
-                    self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_BAD_TARGETS)
-                return False
-
         if casting_spell.initial_target_is_unit_or_player() and not casting_spell.initial_target.is_alive:  # TODO dead targets (resurrect)
             self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_TARGETS_DEAD)
             return False
@@ -483,6 +472,17 @@ class SpellManager(object):
 
         if not self.meets_casting_requisites(casting_spell):
             return False
+
+        if casting_spell.initial_target_is_unit_or_player():
+            creature_type_mask = SpellFormulas.creature_type_to_creature_type_mask(casting_spell.initial_target.creature_type) # Creature type (ex. Humanoid - 6) to type mask (ex. Humanoid - 64, Undead - 32)
+            uses_target_type_mask = casting_spell.spell_entry.TargetCreatureType != 0
+
+            if casting_spell.spell_entry.ImplicitTargetA_1 != SpellImplicitTargets.TARGET_ALL_AROUND_CASTER and uses_target_type_mask and creature_type_mask != casting_spell.spell_entry.TargetCreatureType: # Type to mask conversion different from spell dbc type mask
+                if SpellFormulas.creature_type_to_creature_type_mask(CreatureTypes.UNDEAD) == casting_spell.spell_entry.TargetCreatureType:
+                    self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_TARGET_NOT_DEAD)
+                else:
+                    self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_BAD_TARGETS)
+                return False
 
         return True
 
