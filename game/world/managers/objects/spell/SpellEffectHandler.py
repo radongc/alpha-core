@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from game.world.managers.objects.spell.SpellManager import SpellManager
     from game.world.managers.objects.spell.CastingSpell import CastingSpell
+    from game.world.managers.objects.spell.SpellEffect import SpellEffect
     from game.world.managers.objects.player.PlayerManager import PlayerManager
 
 from database.world.WorldDatabaseManager import WorldDatabaseManager
@@ -145,15 +146,13 @@ class SpellEffectHandler(object):
         return
 
     @staticmethod
-    def handle_leap(casting_spell: CastingSpell, effect, caster: PlayerManager, target): # Blink, Charge (alpha)
-        resolved_targets = effect.targets.resolved_targets_a
-        if not resolved_targets or len(resolved_targets) == 0:
+    def handle_leap(casting_spell: CastingSpell, effect: SpellEffect, caster: PlayerManager, target): # Blink, Charge (alpha)
+        target_teleport_info = effect.targets.initial_target
+        if not target_teleport_info:
             return
-            
-        teleport_info = resolved_targets[0]
 
         from game.world.managers.abstractions.Vector import Vector
-        teleport_dest_final = Vector(teleport_info.x, teleport_info.y, teleport_info.z, caster.location.o)
+        teleport_dest_final = Vector(target_teleport_info.x, target_teleport_info.y, target_teleport_info.z, caster.location.o)
         
         if caster.location.distance(teleport_dest_final) <= casting_spell.range_entry.RangeMax:
             caster.teleport(caster.map_, teleport_dest_final)
