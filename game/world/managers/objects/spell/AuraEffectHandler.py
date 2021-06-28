@@ -89,16 +89,6 @@ class AuraEffectHandler:
 
         spell = aura.source_spell
         healing = aura.spell_effect.get_effect_points(aura.spell_effect.caster_effective_level)
-        aura.caster.deal_spell_healing(aura.target, healing, spell.spell_entry.School, spell.spell_entry.ID)
-
-    @staticmethod
-    def handle_periodic_damage(aura, remove):
-        if not aura.is_past_next_period_timestamp() or remove:
-            return
-        aura.pop_period_timestamp()
-
-        spell = aura.source_spell
-        healing = aura.spell_effect.get_effect_points(aura.spell_effect.caster_effective_level)
         aura.caster.apply_spell_healing(aura.target, healing, spell.spell_entry.School, spell.spell_entry.ID)
 
     @staticmethod
