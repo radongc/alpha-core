@@ -1376,6 +1376,7 @@ begin not atomic
         UPDATE `creature_template` SET `trainer_id` = 1001 WHERE `entry` = 7953;
 
 		insert into applied_updates values ('270520211');
+    end if;
     
     -- 28/06/2021 1
     if (select count(*) from applied_updates where id='280620211') = 0 then
