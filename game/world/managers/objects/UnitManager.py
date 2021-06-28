@@ -499,6 +499,21 @@ class UnitManager(ObjectManager):
         update_packet = self.generate_proper_update_packet(is_self=is_player)
         MapManager.send_surrounding(update_packet, self, include_self=is_player)
 
+    def receive_power(self, power_type, amount, source=None):       
+        new_power = self.get_power_type_value() + amount
+        
+        if power_type != self.power_type:
+            return
+
+        if power_type == PowerTypes.TYPE_MANA:
+            self.set_mana(new_power)
+        elif power_type == PowerTypes.TYPE_RAGE:
+            self.set_rage(new_power)
+        elif power_type == PowerTypes.TYPE_FOCUS:
+            self.set_focus(new_power)
+        elif power_type == PowerTypes.TYPE_ENERGY:
+            self.set_energy(new_power)
+
     def deal_spell_damage(self, target, damage, school, spell_id):  # TODO Spell hit damage visual?
         data = pack('<IQQIIfiii', 1, self.guid, target.guid, spell_id,
                     damage, damage, school, damage, 0)
