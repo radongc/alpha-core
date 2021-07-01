@@ -38,6 +38,8 @@ class TrainerBuySpellHandler(object):
                         force_inventory_update=False)
                     TrainerBuySpellHandler.send_trainer_buy_succeeded(world_session, trainer_guid, spell_id)
 
+                    world_session.player_mgr.talent_manager.send_talent_list()
+
             # Otherwise, using a trainer NPC.
             else:
                 npc: CreatureManager = MapManager.get_surrounding_unit_by_guid(world_session.player_mgr, trainer_guid)
