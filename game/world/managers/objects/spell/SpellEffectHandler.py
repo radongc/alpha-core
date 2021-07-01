@@ -1,18 +1,10 @@
-from __future__ import annotations
- #REMOVE THIS & TYPE HINTING BEFORE PR
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from game.world.managers.objects.spell.SpellManager import SpellManager
-    from game.world.managers.objects.spell.CastingSpell import CastingSpell
-    from game.world.managers.objects.spell.SpellEffect import SpellEffect
-    from game.world.managers.objects.player.PlayerManager import PlayerManager
-
 from database.world.WorldDatabaseManager import WorldDatabaseManager
+from game.world.managers.objects.ObjectManager import ObjectManager
 from game.world.managers.objects.player.DuelManager import DuelManager
 from game.world.managers.objects.spell.AuraManager import AppliedAura
 from utils.Logger import Logger
 from utils.constants.MiscCodes import ObjectTypes, HighGuid
-from utils.constants.SpellCodes import SpellCastFlags, SpellCheckCastResult, AuraTypes, SpellEffects, SpellState
+from utils.constants.SpellCodes import SpellCheckCastResult, AuraTypes, SpellEffects, SpellState, SpellTargetMask
 from utils.constants.UnitCodes import PowerTypes, UnitFlags, MovementTypes
 
 
@@ -27,12 +19,12 @@ class SpellEffectHandler(object):
     @staticmethod
     def handle_school_damage(casting_spell, effect, caster, target):
         damage = effect.get_effect_points(casting_spell.caster_effective_level)
-        caster.apply_spell_damage(target, damage, casting_spell.spell_entry.School, casting_spell.spell_entry.ID)
+        caster.apply_spell_damage(target, damage, casting_spell)
 
     @staticmethod
     def handle_heal(casting_spell, effect, caster, target):
         healing = effect.get_effect_points(casting_spell.caster_effective_level)
-        caster.apply_spell_healing(target, healing, casting_spell.spell_entry.School, casting_spell.spell_entry.ID)
+        caster.apply_spell_healing(target, healing, casting_spell)
 
     @staticmethod
     def handle_weapon_damage(casting_spell, effect, caster, target):
@@ -40,7 +32,7 @@ class SpellEffectHandler(object):
         if not damage_info:
             return
         damage = damage_info.total_damage + effect.get_effect_points(casting_spell.caster_effective_level)
-        caster.apply_spell_damage(target, damage, casting_spell.spell_entry.School, casting_spell.spell_entry.ID)
+        caster.apply_spell_damage(target, damage, casting_spell)
 
     @staticmethod
     def handle_weapon_damage_plus(casting_spell, effect, caster, target):
@@ -54,7 +46,7 @@ class SpellEffectHandler(object):
                 casting_spell.requires_combo_points():
             damage_bonus *= caster.combo_points
 
-        caster.apply_spell_damage(target, damage + damage_bonus, casting_spell.spell_entry.School, casting_spell.spell_entry.ID)
+        caster.apply_spell_damage(target, damage + damage_bonus, casting_spell)
 
     @staticmethod
     def handle_add_combo_points(casting_spell, effect, caster, target):
@@ -77,18 +69,27 @@ class SpellEffectHandler(object):
 
     @staticmethod
     def handle_open_lock(casting_spell, effect, caster, target):
-        if caster and target:
+        # TODO Skill checks etc.
+        if caster and target and target.get_type() == ObjectTypes.TYPE_GAMEOBJECT:  # TODO other object types, ie. lockboxes
             target.use(caster)
+            casting_spell.cast_state = SpellState.SPELL_STATE_ACTIVE  # Keep checking movement interrupt.
 
     @staticmethod
     def handle_energize(casting_spell, effect, caster, target):
         power_type = effect.misc_value
-        power_amount = effect.get_effect_points(casting_spell.caster_effective_level)
 
         if power_type != target.power_type:
             return
 
-        target.receive_power(power_type, power_amount)
+        new_power = target.get_power_type_value() + effect.get_effect_points(casting_spell.caster_effective_level)
+        if power_type == PowerTypes.TYPE_MANA:
+            target.set_mana(new_power)
+        elif power_type == PowerTypes.TYPE_RAGE:
+            target.set_rage(new_power)
+        elif power_type == PowerTypes.TYPE_FOCUS:
+            target.set_focus(new_power)
+        elif power_type == PowerTypes.TYPE_ENERGY:
+            target.set_energy(new_power)
 
     @staticmethod
     def handle_summon_mount(casting_spell, effect, caster, target):
@@ -139,32 +140,6 @@ class SpellEffectHandler(object):
         return
 
     @staticmethod
-    def handle_leap(casting_spell: CastingSpell, effect: SpellEffect, caster: PlayerManager, target): # Blink, Charge (alpha)
-        target_teleport_info = effect.targets.initial_target
-        if not target_teleport_info:
-            return
-
-        from game.world.managers.abstractions.Vector import Vector
-        teleport_dest_final = Vector(target_teleport_info.x, target_teleport_info.y, target_teleport_info.z, caster.location.o)
-        
-        if caster.location.distance(teleport_dest_final) <= casting_spell.range_entry.RangeMax:
-            caster.teleport(caster.map_, teleport_dest_final)
-        else: # If target out of bounds, teleport player in the same direction at max dist possible
-            from_loc = caster.location
-            to_loc = teleport_dest_final
-
-            d1 = from_loc.distance(to_loc)
-            d2 = casting_spell.range_entry.RangeMax
-
-            tele_point_x = from_loc.x - ((d2 * (from_loc.x - to_loc.x)) / d1)
-            tele_point_y = from_loc.y - ((d2 * (from_loc.y - to_loc.y)) / d1)
-            tele_point_z = Vector.calculate_z(tele_point_x, tele_point_y, caster.map_, to_loc.z) # Maps required TODO vmaps required to work properly on large world obejcts (ex. Stormwind, caves etc.), with maps it only finds ground position.
-
-            adjusted_teleport_dest = Vector(tele_point_x, tele_point_y, tele_point_z, from_loc.o)
-
-            caster.teleport(caster.map_, adjusted_teleport_dest)
-
-    @staticmethod
     def handle_apply_area_aura(casting_spell, effect, caster, target):  # Paladin auras, healing stream totem etc.
         casting_spell.cast_state = SpellState.SPELL_STATE_ACTIVE
 
@@ -176,12 +151,7 @@ class SpellEffectHandler(object):
 
         for target in new_targets:
             new_aura = AppliedAura(caster, casting_spell, effect, target)
-            new_aura.aura_period_timestamps = effect.effect_aura.aura_period_timestamps.copy()  # Don't pass reference, AuraManager will manage timestamps
-            new_aura.duration = effect.effect_aura.duration
             target.aura_manager.add_aura(new_aura)
-
-        if effect.effect_aura.is_past_next_period_timestamp():
-            effect.effect_aura.pop_period_timestamp()  # Update effect aura timestamps
 
         for target in missing_targets:
             target.aura_manager.cancel_auras_by_spell_id(casting_spell.spell_entry.ID)
@@ -231,6 +201,20 @@ class SpellEffectHandler(object):
                 break
             creature_manager.spell_manager.handle_cast_attempt(spell_id, creature_manager, creature_manager, 0)
 
+    @staticmethod
+    def handle_script_effect(casting_spell, effect, caster, target):
+        arcane_missiles = [5143, 5144, 5145, 6125]  # Only arcane missiles and group astral recall.
+        group_astral_recall = 966
+        if casting_spell.spell_entry.ID in arcane_missiles:
+            # Periodic trigger spell aura uses the original target mask.
+            # Arcane missiles initial cast is self-targeted, so we need to switch the mask here.
+            casting_spell.spell_target_mask = SpellTargetMask.UNIT
+        elif casting_spell.spell_entry.ID == group_astral_recall:
+            for target in effect.targets.get_resolved_effect_targets_by_type(ObjectManager):
+                if target.get_type() != ObjectTypes.TYPE_PLAYER:
+                    continue
+                recall_coordinates = target.get_deathbind_coordinates()
+                target.teleport(recall_coordinates[0], recall_coordinates[1])
 
     AREA_SPELL_EFFECTS = [
         SpellEffects.SPELL_EFFECT_PERSISTENT_AREA_AURA,
@@ -254,8 +238,8 @@ SPELL_EFFECTS = {
     SpellEffects.SPELL_EFFECT_PERSISTENT_AREA_AURA: SpellEffectHandler.handle_persistent_area_aura,
     SpellEffects.SPELL_EFFECT_OPEN_LOCK: SpellEffectHandler.handle_open_lock,
     SpellEffects.SPELL_EFFECT_LEARN_SPELL: SpellEffectHandler.handle_learn_spell,
-    SpellEffects.SPELL_EFFECT_LEAP: SpellEffectHandler.handle_leap,
     SpellEffects.SPELL_EFFECT_APPLY_AREA_AURA: SpellEffectHandler.handle_apply_area_aura,
-    SpellEffects.SPELL_EFFECT_SUMMON_TOTEM: SpellEffectHandler.handle_summon_totem
+    SpellEffects.SPELL_EFFECT_SUMMON_TOTEM: SpellEffectHandler.handle_summon_totem,
+    SpellEffects.SPELL_EFFECT_SCRIPT_EFFECT: SpellEffectHandler.handle_script_effect
 }
 

@@ -918,12 +918,10 @@ class PlayerManager(UnitManager):
     def remove_talent_points(self, talent_points):
         self.talent_points -= talent_points
         self.set_uint32(PlayerFields.PLAYER_CHARACTER_POINTS1, self.talent_points)
-        self.send_update_self(self.generate_proper_update_packet(is_self=True), force_inventory_update=False)
     
     def remove_skill_points(self, skill_points):
         self.skill_points -= skill_points
         self.set_uint32(PlayerFields.PLAYER_CHARACTER_POINTS2, self.skill_points)
-        self.send_update_self(self.generate_proper_update_packet(is_self=True), force_inventory_update=False)
 
     def regenerate(self, current_time):
         if not self.is_alive or self.health == 0:
@@ -1157,11 +1155,11 @@ class PlayerManager(UnitManager):
         self.set_uint64(UnitFields.UNIT_FIELD_COMBO_TARGET, self.combo_target)
 
     # override
-    def receive_damage(self, amount, source=None):
+    def receive_damage(self, amount, source=None, is_periodic=False):
         if self.is_god:
             return
 
-        super().receive_damage(amount, source)
+        super().receive_damage(amount, source, is_periodic=False)
 
     # override
     def receive_healing(self, amount, source=None):
@@ -1201,7 +1199,7 @@ class PlayerManager(UnitManager):
             # SpellManager tick
             self.spell_manager.update(now, elapsed)
             # AuraManager tick
-            self.aura_manager.update(elapsed)
+            self.aura_manager.update(now)
 
             # Duel tick
             if self.duel_manager:
