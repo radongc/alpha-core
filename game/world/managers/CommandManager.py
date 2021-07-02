@@ -387,7 +387,7 @@ class CommandManager(object):
 
             from database.world.WorldModels import SpawnsCreatures
             instance = SpawnsCreatures()
-            instance.spawn_id = HighGuid.HIGHGUID_UNIT + randint(1000, 60000)  # TODO Placeholder GUID
+            instance.spawn_id = HighGuid.HIGHGUID_UNIT + randint(500000, 600000)  # TODO Placeholder GUID
             instance.map = world_session.player_mgr.map_
             instance.orientation = world_session.player_mgr.location.o
             instance.position_x = world_session.player_mgr.location.x
