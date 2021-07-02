@@ -28,11 +28,11 @@ from utils.constants.MiscCodes import ChatFlags, LootTypes
 from utils.constants.MiscCodes import ObjectTypes, ObjectTypeIds, PlayerFlags, WhoPartyStatus, HighGuid, \
     AttackTypes, MoveFlags
 from utils.constants.SpellCodes import ShapeshiftForms
-from utils.constants.UnitCodes import Classes, PowerTypes, Races, Genders, UnitFlags, Teams
+from utils.constants.UnitCodes import Classes, PowerTypes, Races, Genders, UnitFlags, Teams, SplineFlags
 from utils.constants.UpdateFields import *
 
 MAX_ACTION_BUTTONS = 120
-MAX_EXPLORED_AREAS = 618
+MAX_EXPLORED_AREAS = 488
 
 
 class PlayerManager(UnitManager):
@@ -737,18 +737,35 @@ class PlayerManager(UnitManager):
 
         self.send_update_self(self.generate_proper_update_packet(is_self=True), force_inventory_update=reload_items)
 
-    def has_area_explored(self, area_template):
-        return self.explored_areas[area_template.entry]
+    def on_zone_change(self, new_zone):
+        # Update player zone.
+        self.zone = new_zone
+        # Update friends and group.
+        self.friends_manager.send_update_to_friends()
+        if self.group_manager:
+            self.group_manager.send_update()
+
+        # Exploration handling (only if player is not flying).
+        if not self.movement_spline or self.movement_spline.flags != SplineFlags.SPLINEFLAG_FLYING:
+            explore_flag = MapManager.get_area_explore_flag(self.map_, self.location.x, self.location.y)
+            # Check if we need to set this zone as explored.
+            if explore_flag >= 0 and not self.has_area_explored(explore_flag):
+                area_information = MapManager.get_area_information(self)
+                if area_information:
+                    self.set_area_explored(area_information)
+
+    def has_area_explored(self, area_explore_bit):
+        return self.explored_areas[area_explore_bit]
 
     # TODO: Research XP for exploration.
     #  Trigger quest explore requirement checks.
-    def set_area_explored(self, area_template):
-        self.explored_areas[area_template.entry] = True
-        if area_template.area_level > 0:
-            xp_gain = area_template.area_level * 10
+    def set_area_explored(self, area_information):
+        self.explored_areas[area_information.area_explore_bit] = True
+        if area_information.area_level > 0:
+            xp_gain = area_information.area_level * 10
             self.give_xp([xp_gain])
             # Notify client new discovered zone + xp gain.
-            data = pack('<2I', area_template.entry, xp_gain)
+            data = pack('<2I', area_information.area_id, xp_gain)
             packet = PacketWriter.get_packet(OpCode.SMSG_EXPLORATION_EXPERIENCE, data)
             self.session.enqueue_packet(packet)
 
