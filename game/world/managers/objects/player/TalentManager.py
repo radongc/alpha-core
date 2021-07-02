@@ -41,11 +41,9 @@ class TalentManager(object):
             spell_rank: int = DbcDatabaseManager.SpellHolder.spell_get_rank_by_spell(spell)
 
             if ability.Spell in self.player_mgr.spell_manager.spells:
-                if ability.SupercededBySpell > 0:
-                    next_talent.append(ability.SupercededBySpell)
                 status = TrainerServices.TRAINER_SERVICE_USED
             else:
-                if ability.Spell in next_talent:
+                if ability.custom_PrecededBySpell in self.player_mgr.spell_manager.spells and spell_rank > 1:
                     status = TrainerServices.TRAINER_SERVICE_AVAILABLE
                 elif spell_rank == 1:
                     status = TrainerServices.TRAINER_SERVICE_AVAILABLE

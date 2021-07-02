@@ -114,6 +114,10 @@ class EffectTargets:
         return [unit for unit in units if caster.can_attack_target(unit)]
 
     @staticmethod
+    def get_attackable_from_unit_list(units: list[ObjectManager], caster):
+        return [unit for unit in units if caster.is_valid_attack_target(unit)]
+
+    @staticmethod
     def get_friends_from_unit_list(units: list[ObjectManager], caster):
         return [unit for unit in units if not caster.can_attack_target(unit)]
 
@@ -327,7 +331,19 @@ class EffectTargets:
 
     @staticmethod
     def resolve_all_hostile_around_caster(casting_spell, target_effect):  # TODO Charge effects only?
-        Logger.warning(f'Unimlemented implicit target called for spell {casting_spell.spell_entry.ID}')
+        result = MapManager.get_surrounding_units(casting_spell.spell_caster, True)
+        units = list(result[0].values()) + list(result[1].values())
+
+        caster = casting_spell.spell_caster
+        units_in_range = []
+        for unit in units:
+            if caster is unit:
+                continue
+            distance = caster.location.distance(unit.location)
+            if distance <= casting_spell.range_entry.RangeMax:
+                units_in_range.append(unit)
+                
+        return EffectTargets.get_attackable_from_unit_list(units_in_range, casting_spell.spell_caster)
 
     @staticmethod
     def resolve_aoe_party(casting_spell, target_effect):

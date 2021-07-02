@@ -1,3 +1,12 @@
+from __future__ import annotations
+ #REMOVE THIS & TYPE HINTING BEFORE PR
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from game.world.managers.objects.spell.SpellManager import SpellManager
+    from game.world.managers.objects.spell.CastingSpell import CastingSpell
+    from game.world.managers.objects.spell.SpellEffect import SpellEffect
+    from game.world.managers.objects.player.PlayerManager import PlayerManager
+
 from database.world.WorldDatabaseManager import WorldDatabaseManager
 from game.world.managers.objects.ObjectManager import ObjectManager
 from game.world.managers.objects.player.DuelManager import DuelManager
@@ -77,19 +86,12 @@ class SpellEffectHandler(object):
     @staticmethod
     def handle_energize(casting_spell, effect, caster, target):
         power_type = effect.misc_value
+        power_amount = effect.get_effect_points(casting_spell.caster_effective_level)
 
         if power_type != target.power_type:
             return
-
-        new_power = target.get_power_type_value() + effect.get_effect_points(casting_spell.caster_effective_level)
-        if power_type == PowerTypes.TYPE_MANA:
-            target.set_mana(new_power)
-        elif power_type == PowerTypes.TYPE_RAGE:
-            target.set_rage(new_power)
-        elif power_type == PowerTypes.TYPE_FOCUS:
-            target.set_focus(new_power)
-        elif power_type == PowerTypes.TYPE_ENERGY:
-            target.set_energy(new_power)
+        
+        target.receive_power(power_type, power_amount)
 
     @staticmethod
     def handle_summon_mount(casting_spell, effect, caster, target):
@@ -140,6 +142,32 @@ class SpellEffectHandler(object):
         return
 
     @staticmethod
+    def handle_leap(casting_spell: CastingSpell, effect: SpellEffect, caster: PlayerManager, target): # Blink, Charge (alpha)
+        spell_target = effect.targets.initial_target if casting_spell.initial_target_is_terrain() else target.location if target \
+            else effect.targets.resolved_targets_b[0].location if len(effect.targets.resolved_targets_b) > 0 else None
+
+        if not spell_target:
+            return
+
+        from game.world.managers.abstractions.Vector import Vector
+        teleport_dest_final = Vector(spell_target.x, spell_target.y, spell_target.z, caster.location.o)
+        
+        caster.teleport(caster.map_, teleport_dest_final)
+            #from_loc = caster.location
+            #to_loc = teleport_dest_final
+
+            #d1 = from_loc.distance(to_loc)
+            #d2 = casting_spell.range_entry.RangeMax
+
+            #tele_point_x = from_loc.x - ((d2 * (from_loc.x - to_loc.x)) / d1)
+            #tele_point_y = from_loc.y - ((d2 * (from_loc.y - to_loc.y)) / d1)
+            #tele_point_z = Vector.calculate_z(tele_point_x, tele_point_y, caster.map_, to_loc.z) # Maps required TODO vmaps required to work properly on large world obejcts (ex. Stormwind, caves etc.), with maps it only finds ground position.
+
+            #adjusted_teleport_dest = Vector(tele_point_x, tele_point_y, tele_point_z, from_loc.o)
+
+            #caster.teleport(caster.map_, adjusted_teleport_dest)
+
+    @staticmethod
     def handle_apply_area_aura(casting_spell, effect, caster, target):  # Paladin auras, healing stream totem etc.
         casting_spell.cast_state = SpellState.SPELL_STATE_ACTIVE
 
@@ -160,6 +188,12 @@ class SpellEffectHandler(object):
     def handle_learn_spell(casting_spell, effect, caster, target):
         target_spell_id = effect.trigger_spell_id
         target.spell_manager.learn_spell(target_spell_id)
+
+    @staticmethod
+    def handle_skill_step(casting_spell, effect, caster, target):
+        target_skill_id = effect.misc_value
+        target_skill_step = effect.base_points
+        target.skill_manager.set_skill(target_skill_id, target_skill_step, 40)
 
     @staticmethod
     def handle_summon_totem(casting_spell, effect, caster, target):
@@ -238,6 +272,8 @@ SPELL_EFFECTS = {
     SpellEffects.SPELL_EFFECT_PERSISTENT_AREA_AURA: SpellEffectHandler.handle_persistent_area_aura,
     SpellEffects.SPELL_EFFECT_OPEN_LOCK: SpellEffectHandler.handle_open_lock,
     SpellEffects.SPELL_EFFECT_LEARN_SPELL: SpellEffectHandler.handle_learn_spell,
+    SpellEffects.SPELL_EFFECT_SKILL_STEP: SpellEffectHandler.handle_skill_step,
+    SpellEffects.SPELL_EFFECT_LEAP: SpellEffectHandler.handle_leap,
     SpellEffects.SPELL_EFFECT_APPLY_AREA_AURA: SpellEffectHandler.handle_apply_area_aura,
     SpellEffects.SPELL_EFFECT_SUMMON_TOTEM: SpellEffectHandler.handle_summon_totem,
     SpellEffects.SPELL_EFFECT_SCRIPT_EFFECT: SpellEffectHandler.handle_script_effect

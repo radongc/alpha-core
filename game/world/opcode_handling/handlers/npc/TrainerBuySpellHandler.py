@@ -40,8 +40,6 @@ class TrainerBuySpellHandler(object):
                     # Send talent list again to refresh it.
                     world_session.player_mgr.talent_manager.send_talent_list()
 
-                    world_session.player_mgr.talent_manager.send_talent_list()
-
             # Otherwise, using a trainer NPC.
             else:
                 npc: CreatureManager = MapManager.get_surrounding_unit_by_guid(world_session.player_mgr, trainer_guid)

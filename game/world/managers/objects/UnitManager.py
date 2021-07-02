@@ -934,3 +934,12 @@ class UnitManager(ObjectManager):
 
     def is_enemy_to(self, target):
         return self._allegiance_status_checker(target, False)
+
+    def is_valid_attack_target(self, target):
+        if not self.can_attack_target(target):
+            return False
+
+        if not target.is_alive:
+            return False
+
+        return True
