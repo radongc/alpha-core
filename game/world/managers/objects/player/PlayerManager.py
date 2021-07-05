@@ -288,7 +288,7 @@ class PlayerManager(UnitManager):
                 self.deathbind.deathbind_position_x,
                 self.deathbind.deathbind_position_y,
                 self.deathbind.deathbind_position_z,
-                self.deathbind.deathbind_zone
+                self.deathbind.deathbind_map
             )
         return PacketWriter.get_packet(OpCode.SMSG_BINDPOINTUPDATE, data)
 
@@ -457,11 +457,14 @@ class PlayerManager(UnitManager):
             self.duel_manager.force_duel_end(self)
 
     def set_root(self, active):
+        if not self.session:
+            return
+
         if active:
             opcode = OpCode.SMSG_FORCE_MOVE_ROOT
         else:
             opcode = OpCode.SMSG_FORCE_MOVE_UNROOT
-        MapManager.send_surrounding(PacketWriter.get_packet(opcode), self)
+        self.session.enqueue_packet(PacketWriter.get_packet(opcode))
 
     # TODO Maybe merge all speed changes in one method
     def change_speed(self, speed=0):
@@ -873,7 +876,7 @@ class PlayerManager(UnitManager):
             self.duel_manager.build_update(self)
 
         # Inventory
-        self.inventory.send_inventory_update(self.session, is_self)
+        self.inventory.send_inventory_update(is_self)
         self.inventory.build_update()
 
         # Quests
@@ -1253,7 +1256,7 @@ class PlayerManager(UnitManager):
 
     def send_update_self(self, update_packet=None, create=False, force_inventory_update=False, reset_fields=True):
         if not create and (self.dirty_inventory or force_inventory_update):
-            self.inventory.send_inventory_update(self.session, is_self=True)
+            self.inventory.send_inventory_update(is_self=True)
             self.inventory.build_update()
 
         if not update_packet:
@@ -1266,7 +1269,7 @@ class PlayerManager(UnitManager):
 
     def send_update_surrounding(self, update_packet, include_self=False, create=False, force_inventory_update=False):
         if not create and (self.dirty_inventory or force_inventory_update):
-            self.inventory.send_inventory_update(self.session, is_self=False)
+            self.inventory.send_inventory_update(is_self=False)
             self.inventory.build_update()
 
         MapManager.send_surrounding(update_packet, self, include_self=include_self)
