@@ -104,6 +104,8 @@ from game.world.opcode_handling.handlers.player.cheats.LevelUpCheatHandler impor
 from game.world.opcode_handling.handlers.player.cheats.LearnSpellCheatHandler import LearnSpellCheatHandler
 from game.world.opcode_handling.handlers.player.cheats.CooldownCheatHandler import CooldownCheatHandler
 from game.world.opcode_handling.handlers.player.cheats.TriggerCinematicCheatHandler import TriggerCinematicCheatHandler
+from game.world.opcode_handling.handlers.player.cheats.TaxiEnableAllNodesHandlers import TaxiEnableAllNodesHandler
+from game.world.opcode_handling.handlers.player.cheats.TaxiClearAllNodesHandler import TaxiClearAllNodesHandler
 from game.world.opcode_handling.handlers.player.SetActionButtonHandler import SetActionButtonHandler
 from game.world.opcode_handling.handlers.player.NewSpellSlotHandler import NewSpellSlotHandler
 from game.world.opcode_handling.handlers.player.GetDeathBindPointHandler import GetDeathBindPointHandler
@@ -296,6 +298,8 @@ HANDLER_DEFINITIONS = {
     OpCode.CMSG_CHEAT_SETMONEY: CheatSetMoneyHandler.handle,
     OpCode.CMSG_LEVEL_CHEAT: LevelCheatHandler.handle,
     OpCode.CMSG_LEVELUP_CHEAT: LevelUpCheatHandler.handle,
+    OpCode.CMSG_TAXIENABLEALLNODES: TaxiEnableAllNodesHandler.handle,
+    OpCode.CMSG_TAXICLEARALLNODES: TaxiClearAllNodesHandler.handle,
     OpCode.CMSG_LEARN_SPELL: LearnSpellCheatHandler.handle,
     OpCode.CMSG_COOLDOWN_CHEAT: CooldownCheatHandler.handle,
     OpCode.CMSG_DEBUG_AISTATE: DebugAIStateHandler.handle,
