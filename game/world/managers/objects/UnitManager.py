@@ -193,6 +193,7 @@ class UnitManager(ObjectManager):
         self.is_alive = True
         self.is_sitting = False
         self.in_combat = False
+        self.is_rooted = False
         self.swing_error = AttackSwingError.NONE
         self.extra_attacks = 0
         self.disarmed_mainhand = False

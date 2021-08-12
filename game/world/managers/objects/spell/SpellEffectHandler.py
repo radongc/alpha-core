@@ -243,6 +243,15 @@ class SpellEffectHandler(object):
 
         target.skill_manager.add_skill(skill_id)
 
+    @staticmethod
+    def handle_skill_step(casting_spell, effect, caster, target):
+        if target.get_type() != ObjectTypes.TYPE_PLAYER:
+            return
+
+        skill_id = SkillManager.get_skill_id_for_spell_id(casting_spell.spell_entry.ID)
+        target.skill_manager.add_skill(skill_id)
+        target.skill_manager.set_skill(skill_id, 1, 75)
+
     # Block/parry/dodge/defense passives have their own effects and no aura. Flag the unit here as being able to block/parry/dodge.
     @staticmethod
     def handle_block_passive(casting_spell, effect, caster, target):
@@ -301,6 +310,7 @@ SPELL_EFFECTS = {
     SpellEffects.SPELL_EFFECT_SPELL_DEFENSE: SpellEffectHandler.handle_spell_defense_passive,
     SpellEffects.SPELL_EFFECT_WEAPON: SpellEffectHandler.handle_weapon_skill,
     SpellEffects.SPELL_EFFECT_PROFICIENCY: SpellEffectHandler.handle_add_proficiency,
-    SpellEffects.SPELL_EFFECT_LANGUAGE: SpellEffectHandler.handle_add_language
+    SpellEffects.SPELL_EFFECT_LANGUAGE: SpellEffectHandler.handle_add_language,
+    SpellEffects.SPELL_EFFECT_SKILL_STEP: SpellEffectHandler.handle_skill_step
 }
 

@@ -1,6 +1,7 @@
 import time
 from random import randint, choice
 from struct import unpack, pack
+from typing import Optional
 
 from database.world.WorldModels import TrainerTemplate, SpellChain
 from database.dbc.DbcDatabaseManager import DbcDatabaseManager
@@ -136,6 +137,11 @@ class CreatureManager(UnitManager):
 
         trainer_ability_list: list[TrainerTemplate] = WorldDatabaseManager.TrainerSpellHolder.trainer_spells_get_by_trainer(self.entry)
 
+        # Sort trainer spells by required level.
+        trainer_ability_list.sort(key=lambda e: e.reqlevel)
+        # Sort trainer spells by required skill value for professions.
+        trainer_ability_list.sort(key=lambda e: e.reqskillvalue)
+
         if not trainer_ability_list or trainer_ability_list.count == 0:
             Logger.warning(f'send_trainer_list called from NPC {self.entry} but no trainer spells found!')
             return
@@ -150,25 +156,40 @@ class CreatureManager(UnitManager):
             if player_spell_id < 1:
                 continue
             
-            ability_spell_chain: SpellChain = WorldDatabaseManager.SpellChainHolder.spell_chain_get_by_spell(player_spell_id)
+            ability_spell_chain: Optional[SpellChain] = WorldDatabaseManager.SpellChainHolder.spell_chain_get_by_spell(player_spell_id)
 
-            spell_level: int = trainer_spell.reqlevel  # Use this and not spell data, as there are differences between data source (2003 Game Guide) and what is in spell table.
+            if not ability_spell_chain:
+                Logger.warning(f'[TRAINER {self.creature_template.entry}] Spell {player_spell_id} has no spell_chain entry. Skipping...')
+                continue
+
+            spell_level_requirement: int = trainer_spell.reqlevel  # Use this and not spell data, as there are differences between data source (2003 Game Guide) and what is in spell table.
+            spell_skill = trainer_spell.reqskill
+            spell_skill_requirement: int = trainer_spell.reqskillvalue
             spell_rank: int = ability_spell_chain.rank
             prev_spell: int = ability_spell_chain.prev_spell
-            req_spell: int = ability_spell_chain.req_spell
 
-            spell_is_too_high_level: bool = spell_level > world_session.player_mgr.level
+            # Unavailable conditions.
+            spell_is_too_high_level: bool = spell_level_requirement > world_session.player_mgr.level
+            spell_is_too_high_skill_level: bool = False
 
+            # Check player skill vs spell skill requirement.
+            if world_session.player_mgr.skill_manager.get_total_skill_value(spell_skill) != None and spell_skill > 0:
+                spell_is_too_high_skill_level: bool = spell_skill_requirement > world_session.player_mgr.skill_manager.get_total_skill_value(spell_skill)
+            elif world_session.player_mgr.skill_manager.get_total_skill_value(spell_skill) == None and spell_skill > 0:
+                spell_is_too_high_skill_level: bool = True
+
+            # Determine status of spell.
             if player_spell_id in world_session.player_mgr.spell_manager.spells:
                 status = TrainerServices.TRAINER_SERVICE_USED
             else:
-                if prev_spell in world_session.player_mgr.spell_manager.spells and spell_rank > 1 and not spell_is_too_high_level:
+                if prev_spell in world_session.player_mgr.spell_manager.spells and spell_rank > 1 and not spell_is_too_high_level and not spell_is_too_high_skill_level:
                     status = TrainerServices.TRAINER_SERVICE_AVAILABLE
-                elif spell_rank == 1 and not spell_is_too_high_level:
+                elif spell_rank == 1 and not spell_is_too_high_level and not spell_is_too_high_skill_level:
                     status = TrainerServices.TRAINER_SERVICE_AVAILABLE
                 else:
                     status = TrainerServices.TRAINER_SERVICE_UNAVAILABLE
 
+            # Pack spell data.
             data: bytes = pack(
                 '<IBI3B6I',
                 player_spell_id,  # Spell id
@@ -176,9 +197,9 @@ class CreatureManager(UnitManager):
                 trainer_spell.spellcost,  # Cost
                 trainer_spell.talentpointcost,  # Talent Point Cost
                 trainer_spell.skillpointcost,  # Skill Point Cost
-                spell_level,  # Required Level
-                trainer_spell.reqskill,  # Required Skill Line
-                trainer_spell.reqskillvalue,  # Required Skill Rank
+                spell_level_requirement,  # Required Level
+                spell_skill,  # Required Skill Line
+                spell_skill_requirement,  # Required Skill Rank
                 0,  # Required Skill Step
                 prev_spell,  # Required Ability (1)
                 0,  # Required Ability (2)
@@ -195,7 +216,11 @@ class CreatureManager(UnitManager):
                     greeting_bytes
         )
 
-        data = pack('<Q2I', self.guid, TrainerTypes.TRAINER_TYPE_GENERAL, train_spell_count) + train_spell_bytes + greeting_bytes
+        trainer_type: TrainerTypes = TrainerTypes.TRAINER_TYPE_TRADESKILLS if self.creature_template.trainer_type == 2 else \
+                    TrainerTypes.TRAINER_TYPE_PET if self.creature_template.trainer_type == 3 else \
+                    TrainerTypes.TRAINER_TYPE_GENERAL
+
+        data = pack('<Q2I', self.guid, trainer_type, train_spell_count) + train_spell_bytes + greeting_bytes
         world_session.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_TRAINER_LIST, data))
 
     def finish_loading(self):

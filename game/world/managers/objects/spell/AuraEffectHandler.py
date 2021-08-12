@@ -1,12 +1,13 @@
 import random
+from utils.constants.UpdateFields import UnitFields
 
 from game.world.managers.objects.player.StatManager import UnitStats
 from game.world.managers.objects.spell import ExtendedSpellData
 from utils.ConfigManager import config
 from utils.Logger import Logger
-from utils.constants.MiscCodes import Factions, ObjectTypes
+from utils.constants.MiscCodes import Factions, MoveFlags, ObjectTypes
 from utils.constants.SpellCodes import ShapeshiftForms, AuraTypes, SpellSchoolMask
-from utils.constants.UnitCodes import Teams
+from utils.constants.UnitCodes import Teams, UnitFlags
 
 
 class AuraEffectHandler:
@@ -149,6 +150,35 @@ class AuraEffectHandler:
     @staticmethod
     def handle_feign_death(aura, effect_target, remove):
         effect_target.mirror_timers_manager.feign_death = not remove
+
+    @staticmethod
+    def handle_mod_root(aura, effect_target, remove):
+        if remove:
+            effect_target.movement_flags &= ~MoveFlags.MOVEFLAG_ROOTED
+            effect_target.set_uint32(UnitFields.UNIT_FIELD_FLAGS, effect_target.movement_flags)
+        else:
+            effect_target.movement_flags |= MoveFlags.MOVEFLAG_ROOTED
+            effect_target.movement_flags &= ~MoveFlags.MOVEFLAG_MOVE_MASK
+            effect_target.movement_flags &= ~(MoveFlags.MOVEFLAG_SPLINE_MOVER | MoveFlags.MOVEFLAG_FORWARD)
+            effect_target.movement_manager.reset()
+
+    @staticmethod
+    def handle_mod_stealth(aura, effect_target, remove):
+        if remove:
+            effect_target.unit_flags &= ~UnitFlags.UNIT_FLAG_SNEAK
+            effect_target.set_uint32(UnitFields.UNIT_FIELD_FLAGS, effect_target.unit_flags)
+        else:
+            effect_target.unit_flags |= UnitFlags.UNIT_FLAG_SNEAK
+            effect_target.set_uint32(UnitFields.UNIT_FIELD_FLAGS, effect_target.unit_flags)
+
+    @staticmethod
+    def handle_mod_invisibility(aura, effect_target, remove):
+        if remove:
+            effect_target.unit_flags &= ~UnitFlags.UNIT_FLAG_SNEAK
+            effect_target.set_uint32(UnitFields.UNIT_FIELD_FLAGS, effect_target.unit_flags)
+        else:
+            effect_target.unit_flags |= UnitFlags.UNIT_FLAG_SNEAK
+            effect_target.set_uint32(UnitFields.UNIT_FIELD_FLAGS, effect_target.unit_flags)
 
     @staticmethod
     def handle_mod_resistance(aura, effect_target, remove):
@@ -362,6 +392,9 @@ AURA_EFFECTS = {
     AuraTypes.SPELL_AURA_PROC_TRIGGER_DAMAGE: AuraEffectHandler.handle_proc_trigger_damage,
     AuraTypes.SPELL_AURA_FEIGN_DEATH: AuraEffectHandler.handle_feign_death,
 
+    AuraTypes.SPELL_AURA_MOD_ROOT: AuraEffectHandler.handle_mod_root,
+    AuraTypes.SPELL_AURA_MOD_STEALTH: AuraEffectHandler.handle_mod_stealth,
+    AuraTypes.SPELL_AURA_MOD_INVISIBILITY: AuraEffectHandler.handle_mod_invisibility,
 
     AuraTypes.SPELL_AURA_MOD_RESISTANCE: AuraEffectHandler.handle_mod_resistance,
     AuraTypes.SPELL_AURA_MOD_BASE_RESISTANCE: AuraEffectHandler.handle_mod_base_resistance,
