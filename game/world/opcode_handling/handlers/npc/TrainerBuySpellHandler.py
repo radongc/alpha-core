@@ -38,12 +38,11 @@ class TrainerBuySpellHandler(object):
                     # TODO Only remove money/points if spell cast was successful.
                     spell_to_cast = DbcDatabaseManager.SpellHolder.spell_get_by_id(trainer_spell_id)
                     world_session.player_mgr.spell_manager.start_spell_cast(spell=spell_to_cast, caster=world_session.player_mgr, spell_target=world_session.player_mgr, target_mask=0, force_cast=True)
-                    
+
                     world_session.player_mgr.remove_talent_points(talent_cost)
                     world_session.player_mgr.send_update_self(
                         world_session.player_mgr.generate_proper_update_packet(is_self=True),
                         force_inventory_update=False)
-                    world_session.player_mgr.talent_manager.apply_talent_aura(spell_id)  # Make sure to apply the aura immediately after training.
                     TrainerBuySpellHandler.send_trainer_buy_succeeded(world_session, trainer_guid, spell_id)
                     # Send talent list again to refresh it.
                     world_session.player_mgr.talent_manager.send_talent_list()
@@ -113,9 +112,9 @@ class TrainerBuySpellHandler(object):
     @staticmethod
     def send_trainer_buy_fail(world_session, trainer_guid: int, spell_id: int, reason: TrainingFailReasons):
         data = pack('<Q2I', trainer_guid, spell_id, reason)
-        world_session.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_TRAINER_BUY_FAILED, data))
+        world_session.player_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_TRAINER_BUY_FAILED, data))
 
     @staticmethod
     def send_trainer_buy_succeeded(world_session, trainer_guid: int, spell_id: int):
         data = pack('<QI', trainer_guid, spell_id)
-        world_session.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_TRAINER_BUY_SUCCEEDED, data))
+        world_session.player_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_TRAINER_BUY_SUCCEEDED, data))

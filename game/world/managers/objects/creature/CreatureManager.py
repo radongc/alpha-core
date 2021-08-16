@@ -83,8 +83,14 @@ class CreatureManager(UnitManager):
                                          self.creature_instance.position_y,
                                          self.creature_instance.position_z,
                                          self.creature_instance.orientation)
-            self.location = self.spawn_position
+            self.location = self.spawn_position.copy()
             self.respawn_time = randint(self.creature_instance.spawntimesecsmin, self.creature_instance.spawntimesecsmax)
+
+        # All creatures can block, parry and dodge by default.
+        # TODO CANT_BLOCK creature extra flag
+        self.has_block_passive = True
+        self.has_dodge_passive = True
+        self.has_parry_passive = True
 
     def load(self):
         MapManager.update_object(self)
@@ -147,14 +153,7 @@ class CreatureManager(UnitManager):
             return
 
         for trainer_spell in trainer_ability_list:  # trainer_spell: The spell the trainer uses to teach the player.
-            player_spell_id = DbcDatabaseManager.SpellHolder.spell_get_by_id(trainer_spell.spell).EffectTriggerSpell_1 if \
-                DbcDatabaseManager.SpellHolder.spell_get_by_id(trainer_spell.spell).EffectTriggerSpell_1 > 0 else \
-                DbcDatabaseManager.SpellHolder.spell_get_by_id(trainer_spell.spell).EffectTriggerSpell_2 if \
-                DbcDatabaseManager.SpellHolder.spell_get_by_id(trainer_spell.spell).EffectTriggerSpell_2 > 0 else \
-                DbcDatabaseManager.SpellHolder.spell_get_by_id(trainer_spell.spell).EffectTriggerSpell_3
-
-            if player_spell_id < 1:
-                continue
+            player_spell_id = trainer_spell.playerspell
             
             ability_spell_chain: Optional[SpellChain] = WorldDatabaseManager.SpellChainHolder.spell_chain_get_by_spell(player_spell_id)
 
@@ -226,7 +225,7 @@ class CreatureManager(UnitManager):
     def finish_loading(self):
         if self.creature_template and self.creature_instance:
             if not self.fully_loaded:
-                creature_model_info = WorldDatabaseManager.creature_get_model_info(self.current_display_id)
+                creature_model_info = WorldDatabaseManager.CreatureModelInfoHolder.creature_get_model_info(self.current_display_id)
                 if creature_model_info:
                     self.bounding_radius = creature_model_info.bounding_radius
                     self.combat_reach = creature_model_info.combat_reach
@@ -407,6 +406,15 @@ class CreatureManager(UnitManager):
 
     def _perform_combat_movement(self):
         if self.combat_target:
+            # TODO Temp, extremely basic evade / runback mechanic based ONLY on distance. Replace later with a proper one.
+            if self.location.distance(self.spawn_position) > 50:
+                self.leave_combat(force=True)
+                self.set_health(self.max_health)
+                self.recharge_power()
+                self.set_dirty()
+                self.movement_manager.send_move_to([self.spawn_position], self.running_speed, SplineFlags.SPLINEFLAG_RUNMODE)
+                return
+
             self.location.face_point(self.combat_target.location)
 
             current_distance = self.location.distance(self.combat_target.location)
@@ -533,11 +541,6 @@ class CreatureManager(UnitManager):
     # override
     def has_ranged_weapon(self):
         return self.wearing_ranged_weapon
-
-    # override
-    def can_block(self):
-        # All creatures can block by default
-        return True  # TODO CANT_BLOCK creature extra flag
 
     # override
     def set_weapon_mode(self, weapon_mode):

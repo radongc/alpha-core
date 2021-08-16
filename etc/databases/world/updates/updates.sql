@@ -2705,6 +2705,83 @@ begin not atomic
 
 	    insert into applied_updates values ('071920211');
     end if;
+
+    -- 04/08/2021 1
+    if (select count(*) from applied_updates where id='040820211') = 0 then
+        -- Fix Nullify Disease (Rank 2).
+        UPDATE `spell_chain` SET `prev_spell` = 528, `first_spell` = 528 WHERE `spell_id` = 552;
+
+        -- Fix Ice Armor (Rank 2)
+        UPDATE `trainer_template` SET `spell` = 1228 WHERE `template_entry` = 1 AND `spell` = 7320;
+
+        insert into applied_updates values ('040820211');
+    end if;
+
+    -- 07/08/2021 1
+    if (select count(*) from applied_updates where id='070820211') = 0 then
+        -- Update faction for gnomes.
+        UPDATE `creature_template` SET `faction` = 64 WHERE `faction` = 875;
+
+        insert into applied_updates values ('070820211');
+    end if;
 	
+	-- 13/08/2021 1
+	if (select count(*) from applied_updates where id='130820211') = 0 then
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 1, 1, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 1, 1, 1180, "Daggers");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 1, 2, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 1, 4, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 1, 5, 227, "Staves");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 2, 1, 198, "One-Handed Maces");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 2, 1, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 2, 1, 1180, "Daggers");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 2, 3, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 2, 3, 1180, "Daggers");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 2, 4, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 2, 7, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 3, 1, 201, "One-Handed Swords");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 3, 1, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 3, 1, 1180, "Daggers");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 3, 2, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 3, 3, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 3, 3, 1180, "Daggers");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 3, 5, 227, "Staves");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 4, 1, 196, "One-Handed Axes");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 4, 1, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 4, 3, 196, "One-Handed Axes");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 4, 3, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 4, 4, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 6, 1, 201, "One-Handed Swords");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 6, 1, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 6, 1, 1180, "Daggers");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 6, 3, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 6, 3, 1180, "Daggers");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 6, 7, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 5, 1, 196, "One-Handed Axes");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 5, 1, 198, "One-Handed Maces");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 5, 1, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 5, 4, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 5, 5, 227, "Staves");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 4, 5, 227, "Staves");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 4, 11, 197, "Two-Handed Axes");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 4, 11, 199, "Two-Handed Maces");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 4, 11, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 6, 11, 197, "Two-Handed Axes");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 6, 11, 199, "Two-Handed Maces");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 6, 11, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 3, 4, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 7, 1, 196, "One-Handed Axes");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 7, 1, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 8, 1, 198, "One-Handed Maces");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 8, 1, 201, "One-Handed Swords");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 8, 1, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 7, 4, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 8, 4, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 8, 3, 268, "FIST WEAPON (DND)");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 8, 3, 1180, "Daggers");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 8, 5, 227, "Staves");
+		INSERT INTO `playercreateinfo_spell` (`id`, `race`, `class`, `Spell`, `Note`) VALUES (default, 8, 7, 268, "FIST WEAPON (DND)");
+        INSERT INTO applied_updates values ('130820211');
+    end if;
 end $
 delimiter ;

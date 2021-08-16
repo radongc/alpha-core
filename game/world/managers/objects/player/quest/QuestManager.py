@@ -9,6 +9,7 @@ from game.world.managers.objects.player.quest.QuestHelpers import QuestHelpers
 from game.world.managers.objects.player.quest.QuestMenu import QuestMenu
 from network.packet.PacketWriter import PacketWriter, OpCode
 from utils.Logger import Logger
+from utils.constants import UnitCodes
 from utils.constants.MiscCodes import QuestGiverStatus, QuestState, QuestFailedReasons, ObjectTypes, QuestMethod, \
     QuestFlags, HighGuid
 from utils.constants.UpdateFields import PlayerFields
@@ -52,8 +53,8 @@ class QuestManager(object):
             return dialog_status
 
         # Relations bounds, the quest giver; Involved relations bounds, the quest completer.
-        relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_get_by_entry(world_object.entry)
-        involved_relations_list = WorldDatabaseManager.QuestRelationHolder.creature_involved_quest_get_by_entry(world_object.entry)
+        relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_starter_get_by_entry(world_object.entry)
+        involved_relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_finisher_get_by_entry(world_object.entry)
 
         # Quest finish
         for involved_relation in involved_relations_list:
@@ -99,8 +100,8 @@ class QuestManager(object):
         quest_menu = QuestMenu()
         # Type is unit, but not player.
         if quest_giver.get_type() == ObjectTypes.TYPE_UNIT and quest_giver.get_type() != ObjectTypes.TYPE_PLAYER:
-            relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_get_by_entry(quest_giver.entry)
-            involved_relations_list = WorldDatabaseManager.QuestRelationHolder.creature_involved_quest_get_by_entry(
+            relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_starter_get_by_entry(quest_giver.entry)
+            involved_relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_finisher_get_by_entry(
                 quest_giver.entry)
         elif quest_giver.get_type() == ObjectTypes.TYPE_GAMEOBJECT:
             # TODO: Gameobjects
@@ -152,26 +153,19 @@ class QuestManager(object):
             else:
                 self.send_quest_giver_quest_details(quest_menu_item.quest, quest_giver_guid, True)
         else:
-            questgiver_greeting: str = self.get_quest_giver_gossip_string_by_guid(quest_giver_guid & ~HighGuid.HIGHGUID_UNIT)
+            questgiver_greeting: str = QuestManager.get_quest_giver_gossip_string(quest_giver)
 
             self.send_quest_giver_quest_list(questgiver_greeting, quest_giver_guid, quest_menu.items)
 
         self.update_surrounding_quest_status()
-
-    def get_quest_giver_gossip_string_by_guid(self, quest_giver_guid: int) -> str:
-        questgiver_gossip_entry: NpcGossip = WorldDatabaseManager.QuestGossipHolder.npc_gossip_get_by_guid(quest_giver_guid)
-        questgiver_text_entry: NpcText = WorldDatabaseManager.QuestGossipHolder.npc_text_get_by_id(questgiver_gossip_entry.textid if questgiver_gossip_entry != None else WorldDatabaseManager.QuestGossipHolder.DEFAULT_GREETING_TEXT_ID) # 68 textid = "Greetings $N"
-        questgiver_greeting: str = questgiver_text_entry.text0_0 if questgiver_text_entry.text0_0 != "" else questgiver_text_entry.text0_1 if questgiver_text_entry.text0_1 != "" else "Greetings, $N"
-
-        return questgiver_greeting
 
     def get_active_quest_num_from_quest_giver(self, quest_giver):
         quest_num: int = 0
 
         # Type is unit, but not player.
         if quest_giver.get_type() == ObjectTypes.TYPE_UNIT and quest_giver.get_type() != ObjectTypes.TYPE_PLAYER:
-            relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_get_by_entry(quest_giver.entry)
-            involved_relations_list = WorldDatabaseManager.QuestRelationHolder.creature_involved_quest_get_by_entry(
+            relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_starter_get_by_entry(quest_giver.entry)
+            involved_relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_finisher_get_by_entry(
                 quest_giver.entry)
         else:
             return
@@ -252,16 +246,32 @@ class QuestManager(object):
     @staticmethod
     def check_quest_giver_npc_is_related(quest_giver_entry, quest_entry):
         is_related = False
-        relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_get_by_entry(quest_giver_entry)
+        relations_list = WorldDatabaseManager.QuestRelationHolder.creature_quest_starter_get_by_entry(quest_giver_entry)
         for relation in relations_list:
             if relation.entry == quest_giver_entry and relation.quest == quest_entry:
                 is_related = True
         return is_related
 
+    @staticmethod
+    def get_quest_giver_gossip_string(quest_giver) -> str:
+        questgiver_gossip_entry: NpcGossip = WorldDatabaseManager.QuestGossipHolder.npc_gossip_get_by_guid(quest_giver.guid)
+        text_entry: int = WorldDatabaseManager.QuestGossipHolder.DEFAULT_GREETING_TEXT_ID  # 68 textid = "Greetings $N".
+        if questgiver_gossip_entry:
+            text_entry = questgiver_gossip_entry.textid
+        questgiver_text_entry: NpcText = WorldDatabaseManager.QuestGossipHolder.npc_text_get_by_id(text_entry)
+
+        # Get text based on creature gender.
+        if quest_giver.gender == UnitCodes.Genders.GENDER_MALE:
+            questgiver_greeting: str = questgiver_text_entry.text0_0
+        else:
+            questgiver_greeting: str = questgiver_text_entry.text0_1
+
+        return questgiver_greeting
+
     def update_surrounding_quest_status(self):
         for guid, unit in list(MapManager.get_surrounding_units(self.player_mgr).items()):
-            if WorldDatabaseManager.QuestRelationHolder.creature_involved_quest_get_by_entry(
-                    unit.entry) or WorldDatabaseManager.QuestRelationHolder.creature_quest_get_by_entry(unit.entry):
+            if WorldDatabaseManager.QuestRelationHolder.creature_quest_finisher_get_by_entry(
+                    unit.entry) or WorldDatabaseManager.QuestRelationHolder.creature_quest_starter_get_by_entry(unit.entry):
                 quest_status = self.get_dialog_status(unit)
                 self.send_quest_giver_status(guid, quest_status)
 
@@ -271,7 +281,7 @@ class QuestManager(object):
         display_id = 0
         if item_template:
             item_mgr = ItemManager(item_template=item_template)
-            self.player_mgr.session.enqueue_packet(item_mgr.query_details())
+            self.player_mgr.enqueue_packet(item_mgr.query_details())
             display_id = item_template.display_id
 
         item_data = pack(
@@ -285,7 +295,7 @@ class QuestManager(object):
 
     def send_cant_take_quest_response(self, reason_code):
         data = pack('<I', reason_code)
-        self.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_QUEST_INVALID, data))
+        self.player_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_QUEST_INVALID, data))
 
     def send_quest_giver_status(self, quest_giver_guid, quest_status):
         data = pack(
@@ -293,7 +303,7 @@ class QuestManager(object):
             quest_giver_guid if quest_giver_guid > 0 else self.player_mgr.guid,
             quest_status
         )
-        self.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_STATUS, data))
+        self.player_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_STATUS, data))
 
     def send_quest_giver_quest_list(self, message, quest_giver_guid, quest):
         message_bytes = PacketWriter.string_to_bytes(message)
@@ -316,7 +326,7 @@ class QuestManager(object):
                 quest_title
             )
 
-        self.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_QUEST_LIST, data))
+        self.player_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_QUEST_LIST, data))
 
     def send_quest_giver_quest_details(self, quest_template, quest_giver_guid, activate_accept):
         # Quest information
@@ -368,7 +378,7 @@ class QuestManager(object):
                 req_creature_or_go_count_list[index]
             )
 
-        self.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_QUEST_DETAILS, data))
+        self.player_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_QUEST_DETAILS, data))
 
     def send_quest_query_response(self, quest):
         data = pack(
@@ -435,7 +445,7 @@ class QuestManager(object):
                 req_objective_text_bytes
             )
 
-        self.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUEST_QUERY_RESPONSE, data))
+        self.player_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUEST_QUERY_RESPONSE, data))
 
     def send_quest_giver_request_items(self, active_quest, quest_giver_id, close_on_cancel):
         is_complete = active_quest.is_quest_complete(quest_giver_id)
@@ -476,7 +486,7 @@ class QuestManager(object):
         )
 
         packet = PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_REQUEST_ITEMS, data)
-        self.player_mgr.session.enqueue_packet(packet)
+        self.player_mgr.enqueue_packet(packet)
 
     def send_quest_giver_offer_reward(self, active_quest, quest_giver_guid, enable_next=True):
         # CGPlayer_C::OnQuestGiverChooseReward
@@ -530,7 +540,7 @@ class QuestManager(object):
             quest.RewSpellCast,
         )
 
-        self.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_OFFER_REWARD, data))
+        self.player_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_OFFER_REWARD, data))
 
     def handle_accept_quest(self, quest_id, quest_giver_guid, shared=False):
         if quest_id in self.active_quests:
@@ -585,7 +595,7 @@ class QuestManager(object):
             if active_quest.quest.entry in player_mgr.quest_manager.completed_quests:
                 continue
 
-            player_mgr.session.enqueue_packet(packet)
+            player_mgr.enqueue_packet(packet)
 
     def handle_remove_quest(self, slot):
         quest_id = self.player_mgr.get_uint32(PlayerFields.PLAYER_QUEST_LOG_1_1 + (slot * 6))
@@ -650,7 +660,7 @@ class QuestManager(object):
             self.player_mgr.inventory.add_item(entry=rew_item_list[index], show_item_get=False)
 
         # TODO: Handle RewSpell and RewSpellCast upon completion.
-        self.player_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_QUEST_COMPLETE, data))
+        self.player_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_QUESTGIVER_QUEST_COMPLETE, data))
 
         # Update surrounding, NextQuestInChain was not working properly.
         self.update_surrounding_quest_status()
@@ -701,7 +711,7 @@ class QuestManager(object):
     def quest_failed(self, active_quest):
         data = pack('<I', active_quest.quest.entry)
         packet = PacketWriter.get_packet(OpCode.SMSG_QUESTUPDATE_FAILED, data)
-        self.player_mgr.session.enqueue_packet(packet)
+        self.player_mgr.enqueue_packet(packet)
 
     def complete_quest(self, active_quest, update_surrounding=False, notify=False):
         active_quest.update_quest_state(QuestState.QUEST_REWARD)
@@ -709,7 +719,7 @@ class QuestManager(object):
         if notify:
             data = pack('<I', active_quest.quest.entry)
             packet = PacketWriter.get_packet(OpCode.SMSG_QUESTUPDATE_COMPLETE, data)
-            self.player_mgr.session.enqueue_packet(packet)
+            self.player_mgr.enqueue_packet(packet)
 
         if update_surrounding:
             self.update_surrounding_quest_status()

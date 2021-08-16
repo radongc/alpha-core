@@ -1,5 +1,5 @@
 import traceback
-
+import _queue
 from database.dbc.DbcDatabaseManager import DbcDatabaseManager
 from game.world.managers.maps.Constants import SIZE, RESOLUTION_ZMAP, RESOLUTION_AREA_INFO, RESOLUTION_LIQUIDS
 from game.world.managers.maps.Map import Map
@@ -11,6 +11,8 @@ MAPS = {}
 MAP_LIST = DbcDatabaseManager.map_get_all_ids()
 AREAS = {}
 AREA_LIST = DbcDatabaseManager.area_get_all_ids()
+PENDING_LOAD = {}
+PENDING_LOAD_QUEUE = _queue.SimpleQueue()
 
 
 # noinspection PyBroadException
@@ -41,7 +43,7 @@ class MapManager(object):
 
     @staticmethod
     def on_cell_turn_active(world_object):
-        MapManager.load_map_tiles(world_object.map_, world_object.location.x, world_object.location.y)
+        MapManager.enqueue_tile_load(world_object.map_, world_object.location.x, world_object.location.y)
 
     @staticmethod
     def validate_maps():
@@ -52,6 +54,28 @@ class MapManager(object):
             return False
 
         return True
+
+    @staticmethod
+    def enqueue_tile_load(map_id, x, y):
+        if not config.Server.Settings.use_map_tiles:
+            return
+
+        x = MapManager.get_tile_x(x)
+        y = MapManager.get_tile_y(y)
+
+        key = f'{map_id},{x},{y}'
+        if key in PENDING_LOAD:
+            return
+
+        PENDING_LOAD[key] = True
+        PENDING_LOAD_QUEUE.put(key)
+
+    @staticmethod
+    def load_pending_tiles():
+        while True:
+            key = PENDING_LOAD_QUEUE.get(block=True, timeout=None)
+            map_id, x, y = str(key).rsplit(',')
+            MapManager.load_map_tiles(map_id, x, y)
 
     @staticmethod
     def load_map_tiles(map_id, x, y):
@@ -70,6 +94,8 @@ class MapManager(object):
                     # Avoid loading tiles information if we already did.
                     if not MAPS[map_id].tiles[x + i][y + j]:
                         MAPS[map_id].tiles[x + i][y + j] = MapTile(map_id, x + i, y + j)
+                        if not MAPS[map_id].tiles[x + i][y + j].load():
+                            MAPS[map_id].tiles[x + i][y + j] = None
 
         return True
 
@@ -104,6 +130,25 @@ class MapManager(object):
         return tile_y
 
     @staticmethod
+    def validate_teleport_destination(map_id, x, y):
+        # Can't validate if not using tile files, so return as True.
+        if not config.Server.Settings.use_map_tiles:
+            return True
+
+        if map_id not in MAPS:
+            return False
+
+        # Some instances don't have tiles, only WMOs; always allow teleporting inside one.
+        if map_id > 1:
+            return True
+
+        map_tile_x, map_tile_y, tile_local_x, tile_local_y = MapManager.calculate_tile(x, y, RESOLUTION_AREA_INFO - 1)
+        if not MapManager._check_tile_load(map_id, x, y, map_tile_x, map_tile_y):
+            return False
+
+        return MAPS[map_id].tiles[map_tile_x][map_tile_y] is not None
+
+    @staticmethod
     def calculate_z_for_object(world_object):
         return world_object.location.calculate_z(world_object.location.x, world_object.location.y, world_object.map_,
                                                  world_object.location.z)
@@ -114,6 +159,9 @@ class MapManager(object):
         try:
             if map_id not in MAPS:
                 Logger.warning(f'Wrong map, {map_id} not found.')
+                return current_z if current_z else 0.0
+
+            if not config.Server.Settings.use_map_tiles:
                 return current_z if current_z else 0.0
 
             map_tile_x, map_tile_y, tile_local_x, tile_local_y = MapManager.calculate_tile(x, y, (RESOLUTION_ZMAP - 1))

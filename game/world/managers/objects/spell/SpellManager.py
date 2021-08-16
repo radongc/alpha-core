@@ -52,10 +52,14 @@ class SpellManager(object):
         self.spells[spell_id] = db_spell
 
         data = pack('<H', spell_id)
-        self.unit_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_LEARNED_SPELL, data))
+        self.unit_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_LEARNED_SPELL, data))
 
         if cast_on_learn or spell.AttributesEx & SpellAttributesEx.SPELL_ATTR_EX_CAST_WHEN_LEARNED:
             self.start_spell_cast(spell, self.unit_mgr, self.unit_mgr, SpellTargetMask.SELF)
+
+        # Apply passive effects when they're learned. This will also apply talents on learn.
+        if spell.Attributes & SpellAttributes.SPELL_ATTR_PASSIVE:
+            self.apply_passive_spell_effects(spell)
 
         # TODO Teach skill required as well like in CharCreateHandler
         return True
@@ -65,9 +69,14 @@ class SpellManager(object):
         for spell_id in self.spells.keys():
             spell_template = DbcDatabaseManager.SpellHolder.spell_get_by_id(spell_id)
             if spell_template and spell_template.Attributes & SpellAttributes.SPELL_ATTR_PASSIVE:
-                spell = self.try_initialize_spell(spell_template, self.unit_mgr, self.unit_mgr, SpellTargetMask.SELF, validate=False)
-                spell.resolve_target_info_for_effects()
-                self.apply_spell_effects(spell, remove=True)
+                self.apply_passive_spell_effects(spell_template)
+
+    def apply_passive_spell_effects(self, spell_template):
+        if spell_template.Attributes & SpellAttributes.SPELL_ATTR_PASSIVE:
+            spell = self.try_initialize_spell(spell_template, self.unit_mgr, self.unit_mgr, SpellTargetMask.SELF,
+                                              validate=False)
+            spell.resolve_target_info_for_effects()
+            self.apply_spell_effects(spell)
 
     def get_initial_spells(self) -> bytes:
         spell_buttons = RealmDatabaseManager.character_get_spell_buttons(self.unit_mgr.guid)
@@ -405,7 +414,7 @@ class SpellManager(object):
                 self.remove_cast(casting_spell, interrupted=True)
                 continue
             if current_cast.casts_on_swing() and casting_spell.casts_on_swing() and casting_spell.cast_state == SpellState.SPELL_STATE_DELAYED:
-                self.remove_cast(casting_spell, interrupted=True)
+                self.remove_cast(casting_spell, SpellCheckCastResult.SPELL_FAILED_DONT_REPORT, interrupted=True)
                 continue
 
     def calculate_impact_delays(self, casting_spell) -> dict[int, float]:
@@ -482,7 +491,7 @@ class SpellManager(object):
             return
 
         data = pack('<2I', casting_spell.spell_entry.ID, casting_spell.duration_entry.Duration)  # No channeled spells with duration per level.
-        self.unit_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.MSG_CHANNEL_START, data))
+        self.unit_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.MSG_CHANNEL_START, data))
         # TODO Channeling animations do not play
 
     def handle_spell_effect_update(self, casting_spell, timestamp):
@@ -514,7 +523,7 @@ class SpellManager(object):
             return
 
         data = pack('<I', 0)
-        self.unit_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.MSG_CHANNEL_UPDATE, data))
+        self.unit_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.MSG_CHANNEL_UPDATE, data))
 
     def send_spell_go(self, casting_spell):
         data = [self.unit_mgr.guid, self.unit_mgr.guid,
@@ -576,7 +585,7 @@ class SpellManager(object):
 
         if start_locked_cooldown:
             data = pack('<IQ', spell.ID, self.unit_mgr.guid)
-            self.unit_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_COOLDOWN_EVENT, data))
+            self.unit_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_COOLDOWN_EVENT, data))
             for cooldown in self.cooldowns:
                 if cooldown.spell_id == spell.ID:
                     cooldown.unlock(timestamp)
@@ -590,7 +599,7 @@ class SpellManager(object):
             return
 
         data = pack('<IQI', spell.ID, self.unit_mgr.guid, cooldown_entry.cooldown_length)
-        self.unit_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_SPELL_COOLDOWN, data))
+        self.unit_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_SPELL_COOLDOWN, data))
 
     def check_spell_cooldowns(self):
         for cooldown_entry in list(self.cooldowns):
@@ -601,7 +610,7 @@ class SpellManager(object):
             if self.unit_mgr.get_type() != ObjectTypes.TYPE_PLAYER:
                 continue
             data = pack('<IQ', cooldown_entry.spell_id, self.unit_mgr.guid)
-            self.unit_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_CLEAR_COOLDOWN, data))
+            self.unit_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_CLEAR_COOLDOWN, data))
 
     def is_on_cooldown(self, spell_entry) -> bool:
         for cooldown_entry in list(self.cooldowns):
@@ -638,7 +647,7 @@ class SpellManager(object):
         # Channeled spells that require persistent targets.
         if casting_spell.spell_entry.AttributesEx & SpellAttributesEx.SPELL_ATTR_EX_CHANNEL_TRACK_TARGET:
             if not casting_spell.targeted_unit_on_cast_start:
-                self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_BAD_IMPLICIT_TARGETS)  # Arcane missiles cast only sends self as target but expects an unit target to track
+                self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_BAD_IMPLICIT_TARGETS)  # Arcane missiles cast only sends self as target but expects an unit target to track.
                 return False
             if not casting_spell.spell_caster.can_attack_target(casting_spell.targeted_unit_on_cast_start) and casting_spell.requires_hostile_target():
                 self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_BAD_IMPLICIT_TARGETS)
@@ -653,10 +662,9 @@ class SpellManager(object):
             self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_NOTSTANDING)
             return False
 
-        if casting_spell.initial_target_is_unit_or_player():  # Orientation checks
-            orientation_diff = abs(self.unit_mgr.location.o - casting_spell.initial_target.location.o)
-            caster_and_target_are_facing = orientation_diff > math.pi/2
-            if not ExtendedSpellData.CastPositionRestrictions.is_position_correct(casting_spell.spell_entry.ID, caster_and_target_are_facing):
+        if casting_spell.initial_target_is_unit_or_player():  # Orientation checks.
+            target_is_facing_caster = casting_spell.initial_target.location.has_in_arc(self.unit_mgr.location, math.pi)
+            if not ExtendedSpellData.CastPositionRestrictions.is_position_correct(casting_spell.spell_entry.ID, target_is_facing_caster):
                 self.send_cast_result(casting_spell.spell_entry.ID, SpellCheckCastResult.SPELL_FAILED_NOT_BEHIND)  # no code for target must be facing caster?
                 return False
 
@@ -782,4 +790,4 @@ class SpellManager(object):
         else:
             data = pack('<I2B', spell_id, SpellCastStatus.CAST_FAILED, error)
 
-        self.unit_mgr.session.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_CAST_RESULT, data))
+        self.unit_mgr.enqueue_packet(PacketWriter.get_packet(OpCode.SMSG_CAST_RESULT, data))

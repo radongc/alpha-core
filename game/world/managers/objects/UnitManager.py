@@ -7,13 +7,14 @@ from database.world.WorldDatabaseManager import WorldDatabaseManager
 from game.world.managers.maps.MapManager import MapManager
 from game.world.managers.objects.MovementManager import MovementManager
 from game.world.managers.objects.ObjectManager import ObjectManager
-from game.world.managers.objects.player.StatManager import StatManager
+from game.world.managers.objects.player.StatManager import StatManager, UnitStats
 from game.world.managers.objects.spell.AuraManager import AuraManager
 from game.world.managers.objects.spell.SpellManager import SpellManager
 from network.packet.PacketWriter import PacketWriter, OpCode
 from network.packet.update.UpdatePacketFactory import UpdatePacketFactory
 from utils.ConfigManager import config
 from utils.Formulas import UnitFormulas
+from utils.Logger import Logger
 from utils.constants.DuelCodes import DuelState
 from utils.constants.ItemCodes import ItemSubClasses
 from utils.constants.MiscCodes import ObjectTypes, ObjectTypeIds, AttackTypes, ProcFlags, \
@@ -252,9 +253,6 @@ class UnitManager(ObjectManager):
         return True
 
     def attack_stop(self, target_switch=False):
-        if self.combat_target and self.guid in self.combat_target.attackers:
-            self.combat_target.attackers.pop(self.guid, None)
-
         # Clear target
         self.set_current_target(self.guid)
         victim = self.combat_target
@@ -369,7 +367,7 @@ class UnitManager(ObjectManager):
         if not damage_info:
             return
 
-        if damage_info.damage > 0:
+        if damage_info.total_damage > 0:
             victim.spell_manager.check_spell_interrupts(received_auto_attack=True, hit_info=damage_info.hit_info)
 
         victim.aura_manager.check_aura_procs(damage_info=damage_info, is_melee_swing=True)
@@ -397,32 +395,47 @@ class UnitManager(ObjectManager):
 
         damage_info.attacker = self
         damage_info.target = victim
-        damage_info.damage = self.calculate_base_attack_damage(attack_type, SpellSchools.SPELL_SCHOOL_NORMAL, victim)
+        damage_info.attack_type = attack_type
 
-        # Not taking "subdamages" into account
-        damage_info.total_damage = damage_info.damage
+        hit_info = victim.stat_manager.get_attack_result_against_self(self, attack_type,
+                                                                      0.19 if self.has_offhand_weapon() else 0)  # Dual wield penalty.
+
+        damage_info.damage = self.calculate_base_attack_damage(attack_type, SpellSchools.SPELL_SCHOOL_NORMAL, victim)
+        damage_info.clean_damage = damage_info.total_damage = damage_info.damage
+        damage_info.hit_info = hit_info
+        damage_info.target_state = VictimStates.VS_WOUND  # Default state on successful attack.
+
+        if hit_info != HitInfo.SUCCESS:
+            damage_info.hit_info = HitInfo.MISS
+            damage_info.total_damage = 0
+            if hit_info == HitInfo.DODGE:
+                damage_info.target_state = VictimStates.VS_DODGE
+                damage_info.proc_victim |= ProcFlags.DODGE
+            elif hit_info == HitInfo.PARRY:
+                damage_info.target_state = VictimStates.VS_PARRY
+                damage_info.proc_victim |= ProcFlags.PARRY
+            elif hit_info == HitInfo.BLOCK:
+                # 0.6 patch notes: "Blocking an attack no longer avoids all of the damage of an attack."
+                # Completely mitigate damage on block.
+                damage_info.target_state = VictimStates.VS_BLOCK
+                damage_info.proc_victim |= ProcFlags.BLOCK
 
         # Generate rage (if needed)
         self.generate_rage(damage_info, is_player=self.get_type() == ObjectTypes.TYPE_PLAYER)
 
-        if attack_type == AttackTypes.BASE_ATTACK:
-            damage_info.proc_attacker = ProcFlags.DEAL_COMBAT_DMG | ProcFlags.SWING
-            damage_info.proc_victim = ProcFlags.TAKE_COMBAT_DMG
-            damage_info.hit_info = HitInfo.SUCCESS
-        elif attack_type == AttackTypes.OFFHAND_ATTACK:
-            damage_info.proc_attacker = ProcFlags.DEAL_COMBAT_DMG | ProcFlags.SWING
-            damage_info.proc_victim = ProcFlags.TAKE_COMBAT_DMG
-            damage_info.hit_info = HitInfo.SUCCESS | HitInfo.OFFHAND
-        elif attack_type == AttackTypes.RANGED_ATTACK:
-            damage_info.proc_attacker = ProcFlags.DEAL_COMBAT_DMG
-            damage_info.proc_victim = ProcFlags.TAKE_COMBAT_DMG
-            damage_info.hit_info = HitInfo.DAMAGE  # ?
+        # Note: 1.1.0 patch: "Skills will not increase from use while dueling or engaged in PvP."
+        self.handle_combat_skill_gain(damage_info)
+        victim.handle_combat_skill_gain(damage_info)
 
-        # Prior to version 1.8, dual wield's miss chance had a hard cap of 19%,
-        # meaning that all dual-wield auto-attacks had a minimum 19% miss chance
-        # regardless of how much +hit% gear was equipped.
-        # TODO FINISH IMPLEMENTING
-        damage_info.target_state = VictimStates.VS_WOUND  # test remove later
+        if damage_info.total_damage > 0:
+            damage_info.proc_victim |= ProcFlags.TAKE_COMBAT_DMG
+            damage_info.proc_attacker |= ProcFlags.DEAL_COMBAT_DMG
+
+        if attack_type == AttackTypes.BASE_ATTACK:
+            damage_info.proc_attacker |= ProcFlags.SWING
+        elif attack_type == AttackTypes.OFFHAND_ATTACK:
+            damage_info.proc_attacker |= ProcFlags.SWING
+            damage_info.hit_info |= HitInfo.OFFHAND
 
         return damage_info
 
@@ -461,6 +474,10 @@ class UnitManager(ObjectManager):
     def generate_rage(self, damage_info, is_player=False):
         return
 
+    # Implemented by PlayerManager
+    def handle_combat_skill_gain(self, damage_info):
+        return
+
     def calculate_min_max_damage(self, attack_type: AttackTypes, attack_school: SpellSchools, target):
         return self.stat_manager.get_base_attack_base_min_max_damage(AttackTypes(attack_type))
 
@@ -469,7 +486,7 @@ class UnitManager(ObjectManager):
         return base_damage
 
     def deal_damage(self, target, damage, is_periodic=False):
-        if not target or not target.is_alive or damage < 1:
+        if not target or not target.is_alive:
             return
 
         if target is not self:
@@ -489,7 +506,7 @@ class UnitManager(ObjectManager):
     def receive_damage(self, amount, source=None, is_periodic=False):
         is_player = self.get_type() == ObjectTypes.TYPE_PLAYER
 
-        if source is not self and not is_periodic:
+        if source is not self and not is_periodic and amount > 0:
             self.aura_manager.check_aura_interrupts(received_damage=True)
             self.spell_manager.check_spell_interrupts(received_damage=True)
 
@@ -538,9 +555,15 @@ class UnitManager(ObjectManager):
 
         damage = self.calculate_spell_damage(damage, casting_spell.spell_entry.School, target, casting_spell.spell_attack_type)
 
+        # TODO Handle misses, absorbs etc. for spells.
         damage_info = self.get_spell_cast_damage_info(target, casting_spell, damage, 0)
-        # TODO Roll crit, handle absorb
+
+        if casting_spell.casts_on_swing():  # TODO Should other spells give skill too?
+            self.handle_combat_skill_gain(damage_info)
+            target.handle_combat_skill_gain(damage_info)
+
         self.send_spell_cast_debug_info(damage_info, miss_reason, casting_spell.spell_entry.ID, is_periodic=is_periodic)
+
         self.deal_damage(target, damage, is_periodic)
 
     def apply_spell_healing(self, target, healing, casting_spell, is_periodic=False):
@@ -557,6 +580,8 @@ class UnitManager(ObjectManager):
 
         damage_info.attacker = self
         damage_info.target = victim
+        damage_info.attack_type = casting_spell.spell_attack_type if casting_spell.spell_attack_type != -1 else 0
+
         damage_info.damage += damage
         damage_info.damage_school_mask = casting_spell.spell_entry.School
         # Not taking "subdamages" into account
@@ -622,14 +647,16 @@ class UnitManager(ObjectManager):
     def has_ranged_weapon(self):
         return False
 
-    def can_block(self):
-        return self.has_block_passive  # TODO Stunned/facing checks
+    # Location is used by PlayerManager if provided.
+    # According to 1.3.0 notes, creatures were able to block/parry from behind.
+    def can_block(self, attacker_location=None):
+        return self.has_block_passive  # TODO Stunned/casting checks
 
-    def can_parry(self):
-        return self.has_parry_passive  # TODO Stunned/casting/facing checks
+    def can_parry(self, attacker_location=None):
+        return self.has_parry_passive  # TODO Stunned/casting checks
 
-    def can_dodge(self):
-        return self.has_dodge_passive  # TODO Stunned check
+    def can_dodge(self, attacker_location=None):
+        return self.has_dodge_passive  # TODO Stunned/casting checks
 
     def enter_combat(self):
         self.in_combat = True
@@ -674,6 +701,15 @@ class UnitManager(ObjectManager):
     def set_attack_timer(self, attack_type, value):
         self.attack_timers[attack_type] = value
 
+    # override
+    def change_speed(self, speed=0):
+        # Assign new base speed.
+        self.stat_manager.base_stats[UnitStats.SPEED_RUNNING] = speed
+        # Get new total speed.
+        speed = self.stat_manager.get_total_stat(UnitStats.SPEED_RUNNING)
+        # Limit to 0-56 and assign object field.
+        return super().change_speed(speed)
+
     def play_emote(self, emote):
         if emote != 0:
             data = pack('<IQ', emote, self.guid)
@@ -708,8 +744,9 @@ class UnitManager(ObjectManager):
             return self.power_2
         elif self.power_type == PowerTypes.TYPE_FOCUS:
             return self.power_3
-        else:
+        elif self.power_type == PowerTypes.TYPE_ENERGY:
             return self.power_4
+        return 0
 
     def get_max_power_value(self):
         if self.power_type == PowerTypes.TYPE_MANA:
@@ -718,8 +755,20 @@ class UnitManager(ObjectManager):
             return self.max_power_2
         elif self.power_type == PowerTypes.TYPE_FOCUS:
             return self.max_power_3
-        else:
+        elif self.power_type == PowerTypes.TYPE_ENERGY:
             return self.max_power_4
+        return 0
+
+    def recharge_power(self):
+        max_power = self.get_max_power_value()
+        if self.power_type == PowerTypes.TYPE_MANA:
+            self.set_mana(max_power)
+        elif self.power_type == PowerTypes.TYPE_RAGE:
+            self.set_rage(max_power)
+        elif self.power_type == PowerTypes.TYPE_FOCUS:
+            self.set_focus(max_power)
+        elif self.power_type == PowerTypes.TYPE_ENERGY:
+            self.set_energy(max_power)
 
     def set_health(self, health):
         if health < 0:
@@ -956,9 +1005,13 @@ class UnitManager(ObjectManager):
         own_faction = DbcDatabaseManager.FactionTemplateHolder.faction_template_get_by_id(self.faction)
         target_faction = DbcDatabaseManager.FactionTemplateHolder.faction_template_get_by_id(target.faction)
 
-        # Some units currently have a bugged faction, terminate the method if this is encountered
+        if not own_faction:
+            Logger.error(f'Invalid faction template: {self.faction}.')
+            return not check_friendly
+
         if not target_faction:
-            return False
+            Logger.error(f'Invalid faction template: {target.faction}.')
+            return not check_friendly
 
         own_enemies = [own_faction.Enemies_1, own_faction.Enemies_2, own_faction.Enemies_3, own_faction.Enemies_4]
         own_friends = [own_faction.Friend_1, own_faction.Friend_2, own_faction.Friend_3, own_faction.Friend_4]
