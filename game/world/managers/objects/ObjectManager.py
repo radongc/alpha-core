@@ -1,10 +1,11 @@
 from struct import pack, unpack
 
 from game.world.managers.abstractions.Vector import Vector
+from game.world.managers.maps.MapManager import MapManager
 from network.packet.PacketWriter import PacketWriter
 from network.packet.update.UpdatePacketFactory import UpdatePacketFactory
 from utils.ConfigManager import config
-from utils.constants.MiscCodes import ObjectTypes, ObjectTypeIds, UpdateTypes, HighGuid
+from utils.constants.MiscCodes import ObjectTypes, ObjectTypeIds, UpdateTypes, HighGuid, LiquidTypes
 from utils.constants.OpCodes import OpCode
 from utils.constants.UpdateFields \
     import ObjectFields
@@ -57,6 +58,8 @@ class ObjectManager(object):
         self.object_type = [ObjectTypes.TYPE_OBJECT]
         self.update_packet_factory = UpdatePacketFactory()
 
+        self.is_spawned = True
+        self.is_summon = False
         self.dirty = False
         self.current_cell = ''
         self.last_tick = 0
@@ -75,6 +78,16 @@ class ObjectManager(object):
         for type_ in self.object_type:
             type_value |= type_
         return type_value
+
+    def generate_proper_update_packet(self, is_self=False, create=False):
+        update_packet = UpdatePacketFactory.compress_if_needed(PacketWriter.get_packet(
+            OpCode.SMSG_UPDATE_OBJECT,
+            self.get_full_update_packet(is_self=is_self) if create else self.get_partial_update_packet()))
+        return update_packet
+
+    def send_create_packet_surroundings(self, **kwargs):
+        update_packet = self.generate_proper_update_packet(False, True)
+        MapManager.send_surrounding(update_packet, self, include_self=False)
 
     def get_object_create_packet(self, is_self=True):
         from game.world.managers.objects import UnitManager
@@ -242,11 +255,23 @@ class ObjectManager(object):
         return unpack('<f', self.update_packet_factory.update_values[index])[0]
 
     # override
+    def despawn(self):
+        self.is_spawned = False
+        if self.is_summon:
+            MapManager.remove_object(self)
+        else:
+            MapManager.send_surrounding(self.get_destroy_packet(), self, include_self=False)
+
+    # override
     def update(self):
         pass
 
     # override
     def get_full_update_packet(self, is_self=True):
+        pass
+
+    # override
+    def respawn(self):
         pass
 
     # override
@@ -272,6 +297,25 @@ class ObjectManager(object):
     # override
     def generate_object_guid(self, low_guid):
         pass
+
+    # override
+    def is_on_water(self):
+        liquid_information = MapManager.get_liquid_information(self.map_, self.location.x, self.location.y,
+                                                               self.location.z)
+        map_z = MapManager.calculate_z_for_object(self)
+        return liquid_information and map_z < liquid_information.height
+
+    # override
+    def is_under_water(self):
+        liquid_information = MapManager.get_liquid_information(self.map_, self.location.x, self.location.y,
+                                                               self.location.z)
+        return liquid_information and self.location.z + (self.current_scale * 2) < liquid_information.height
+
+    # override
+    def is_in_deep_water(self):
+        liquid_information = MapManager.get_liquid_information(self.map_, self.location.x, self.location.y,
+                                                               self.location.z)
+        return liquid_information and liquid_information.liquid_type == LiquidTypes.DEEP
 
     def get_destroy_packet(self):
         data = pack('<Q', self.guid)

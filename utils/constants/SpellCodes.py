@@ -371,7 +371,7 @@ class SpellChannelInterruptFlags(IntEnum):
     CHANNEL_INTERRUPT_FLAG_DAMAGE = 0x04  # Set for all non-zero values
     CHANNEL_INTERRUPT_FLAG_MOVEMENT = 0x08  # Set for all non-zero values
     CHANNEL_INTERRUPT_FLAG_TURNING = 0x10
-    CHANNEL_INTERRUPT_FLAG_FULL_INTERRUPT = 0x20  # Set for some - aoe abilites, seduction, fishing etc. Vmangos defines partial interrupt with 0x4000 (CHANNEL_FLAG_DELAY) which doesn't exist in 0.5.3.
+    CHANNEL_INTERRUPT_FLAG_FULL_INTERRUPT = 0x20  # Set for some - aoe abilites, seduction, fishing etc. VMaNGOS defines partial interrupt with 0x4000 (CHANNEL_FLAG_DELAY) which doesn't exist in 0.5.3.
 
 
 class SpellAuraInterruptFlags(IntEnum):
@@ -508,7 +508,7 @@ class SpellImplicitTargets(IntEnum):
     TARGET_UNIT_NEAR_CASTER = 4
     TARGET_PET = 5
     TARGET_CHAIN_DAMAGE = 6
-    TARGET_AREAEFFECT_CUSTOM = 7  # vmangos: "TARGET_ENUM_UNITS_SCRIPT_AOE_AT_SRC_LOC" Most likely correct definition - includes cozy fire effect etc. TODO
+    TARGET_AREAEFFECT_CUSTOM = 7  # VMaNGOS: "TARGET_ENUM_UNITS_SCRIPT_AOE_AT_SRC_LOC" Most likely correct definition - includes cozy fire effect etc. TODO
     TARGET_INNKEEPER_COORDINATES = 9  # Used in teleport to innkeeper spells
     TARGET_11 = 11  # Only used by "Word of Recall Other" (4)
     TARGET_ALL_ENEMY_IN_AREA = 15

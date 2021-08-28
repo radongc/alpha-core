@@ -121,18 +121,19 @@ class SpellEffectHandler(object):
 
     @staticmethod
     def handle_teleport_units(casting_spell, effect, caster, target):
-        teleport_targets = effect.targets.get_resolved_effect_targets_by_type(tuple)  # Teleport targets should follow the format (map, Vector)
+        # Teleport targets should follow the format (map, Vector).
+        teleport_targets = effect.targets.get_resolved_effect_targets_by_type(tuple)
         if len(teleport_targets) == 0:
             return
         teleport_info = teleport_targets[0]
         if len(teleport_info) != 2 or not isinstance(teleport_info[1], Vector):
             return
 
-        target.teleport(teleport_info[0], teleport_info[1])  # map, coordinates resolved
+        target.teleport(teleport_info[0], teleport_info[1])  # map, coordinates resolved.
         # TODO Die sides are assigned for at least Word of Recall (ID 1)
 
     @staticmethod
-    def handle_persistent_area_aura(casting_spell, effect, caster, target):  # Ground-targeted aoe
+    def handle_persistent_area_aura(casting_spell, effect, caster, target):  # Ground-targeted aoe.
         if target is not None:
             return
 
@@ -188,12 +189,15 @@ class SpellEffectHandler(object):
     def handle_summon_object(casting_spell, effect, caster, target):
         object_entry = effect.misc_value
         go_manager = GameObjectManager.spawn(object_entry, target, caster.map_, override_faction=caster.faction)
+        if not go_manager:
+            Logger.error(f'Gameobject with entry {object_entry} not found for spell {casting_spell.spell_entry.ID}.')
+            return
+
         casting_spell.spell_caster.set_channel_object(go_manager.guid)
         casting_spell.spell_caster.set_dirty()
 
         if go_manager.gobject_template.type == GameObjectTypes.TYPE_RITUAL:
             go_manager.ritual_caster = caster
-        pass
 
     @staticmethod
     def handle_summon_player(casting_spell, effect, caster, target):
@@ -202,6 +206,12 @@ class SpellEffectHandler(object):
         # 1.1: Target of summoning ritual must already be in the same instance if caster is in an instance.
         # 1.1: Summoning gives a confirmation dialog to person being summoned.
         # 1.3: You can no longer accept a warlock summoning while you are in combat.
+
+        # Finish ritual channeling.
+        for spell in list(caster.spell_manager.casting_spells):
+            if spell.is_channeled():
+                caster.spell_manager.remove_cast(spell)
+                break
 
         if not caster.group_manager:
             return
@@ -320,6 +330,7 @@ SPELL_EFFECTS = {
     SpellEffects.SPELL_EFFECT_SCRIPT_EFFECT: SpellEffectHandler.handle_script_effect,
     SpellEffects.SPELL_EFFECT_SUMMON_OBJECT: SpellEffectHandler.handle_summon_object,
     SpellEffects.SPELL_EFFECT_SUMMON_PLAYER: SpellEffectHandler.handle_summon_player,
+    SpellEffects.SPELL_EFFECT_CREATE_HOUSE: SpellEffectHandler.handle_summon_object,
 
     # Passive effects - enable skills, add skills and proficiencies on login.
     SpellEffects.SPELL_EFFECT_BLOCK: SpellEffectHandler.handle_block_passive,
@@ -332,4 +343,5 @@ SPELL_EFFECTS = {
     SpellEffects.SPELL_EFFECT_LANGUAGE: SpellEffectHandler.handle_add_language,
     SpellEffects.SPELL_EFFECT_SKILL_STEP: SpellEffectHandler.handle_skill_step
 }
+
 

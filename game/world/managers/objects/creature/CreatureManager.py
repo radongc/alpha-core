@@ -17,8 +17,7 @@ from utils import Formulas
 from utils.Logger import Logger
 from utils.Formulas import UnitFormulas
 from utils.constants.ItemCodes import InventoryTypes, ItemSubClasses
-from utils.constants.MiscCodes import NpcFlags, ObjectTypes, ObjectTypeIds, UnitDynamicTypes, TrainerServices, \
-    TrainerTypes
+from utils.constants.MiscCodes import NpcFlags, ObjectTypes, ObjectTypeIds, UnitDynamicTypes, TrainerServices, TrainerTypes
 from utils.constants.OpCodes import OpCode
 from utils.constants.UnitCodes import UnitFlags, WeaponMode, CreatureTypes, MovementTypes, SplineFlags
 from utils.constants.UpdateFields import ObjectFields, UnitFields
@@ -89,7 +88,8 @@ class CreatureManager(UnitManager):
                                          self.creature_instance.position_z,
                                          self.creature_instance.orientation)
             self.location = self.spawn_position.copy()
-            self.respawn_time = randint(self.creature_instance.spawntimesecsmin, self.creature_instance.spawntimesecsmax)
+            self.respawn_time = randint(self.creature_instance.spawntimesecsmin,
+                                        self.creature_instance.spawntimesecsmax)
 
         # All creatures can block, parry and dodge by default.
         # TODO CANT_BLOCK creature extra flag
@@ -111,10 +111,10 @@ class CreatureManager(UnitManager):
         instance.spawn_id = CreatureManager.CURRENT_HIGHEST_GUID + 1
         instance.spawn_entry1 = entry
         instance.map = map_id
-        instance.orientation = location.o
         instance.position_x = location.x
         instance.position_y = location.y
         instance.position_z = location.z
+        instance.orientation = location.o
         instance.health_percent = 100
         instance.mana_percent = 100
         if despawn_time < 1:
@@ -131,7 +131,7 @@ class CreatureManager(UnitManager):
             creature.faction = override_faction
 
         creature.load()
-        creature.send_update_surrounding()
+        creature.send_create_packet_surroundings()
 
         return creature
 
@@ -291,7 +291,7 @@ class CreatureManager(UnitManager):
                         self.set_virtual_item(2, creature_equip_template.equipentry3)
 
                 self.stat_manager.init_stats()
-                self.stat_manager.apply_bonuses()
+                self.stat_manager.apply_bonuses(set_dirty=False)
 
                 self.fully_loaded = True
 
@@ -472,7 +472,15 @@ class CreatureManager(UnitManager):
             if len(self.movement_manager.pending_waypoints) > 0 and self.movement_manager.pending_waypoints[0].location == combat_location:
                 return
 
-            self.movement_manager.send_move_to([combat_location], self.running_speed, SplineFlags.SPLINEFLAG_RUNMODE)
+            if self.is_on_water():
+                # Force destination Z to target Z.
+                combat_location.z = self.combat_target.location.z
+                # TODO: Find how to actually trigger swim animation and which spline flag to use.
+                #  VMaNGOS uses UNIT_FLAG_USE_SWIM_ANIMATION, we don't have that.
+                #  Also, we should check if this creature is able to swim, which flag is that?
+                self.movement_manager.send_move_to([combat_location], self.swim_speed, SplineFlags.SPLINEFLAG_FLYING)
+            else:
+                self.movement_manager.send_move_to([combat_location], self.running_speed, SplineFlags.SPLINEFLAG_RUNMODE)
 
     # override
     def update(self):
@@ -500,11 +508,7 @@ class CreatureManager(UnitManager):
                     self.respawn()
                 # Destroy body when creature is about to respawn
                 elif self.is_spawned and self.respawn_timer >= self.respawn_time * 0.8:
-                    self.is_spawned = False
-                    if self.is_summon:
-                        MapManager.remove_object(self)
-                    else:
-                        MapManager.send_surrounding(self.get_destroy_packet(), self, include_self=False)
+                    self.despawn()
 
             # Check "dirtiness" to determine if this creature object should be updated yet or not.
             if self.dirty:
@@ -577,12 +581,6 @@ class CreatureManager(UnitManager):
             self.dynamic_flags &= ~UnitDynamicTypes.UNIT_DYNAMIC_LOOTABLE
         self.set_uint32(UnitFields.UNIT_DYNAMIC_FLAGS, self.dynamic_flags)
 
-    def send_update_surrounding(self):
-        update_packet = UpdatePacketFactory.compress_if_needed(
-            PacketWriter.get_packet(OpCode.SMSG_UPDATE_OBJECT,
-                                    self.get_full_update_packet(is_self=False)))
-        MapManager.send_surrounding(update_packet, self, include_self=False)
-
     # override
     def has_offhand_weapon(self):
         return self.wearing_offhand_weapon
@@ -617,3 +615,4 @@ class CreatureManager(UnitManager):
     # override
     def get_type_id(self):
         return ObjectTypeIds.ID_UNIT
+

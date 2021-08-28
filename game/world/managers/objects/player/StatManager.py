@@ -137,7 +137,8 @@ class StatManager(object):
             self.base_stats[UnitStats.DODGE_CHANCE] = BASE_DODGE_CHANCE_CREATURE / 100  # Players don't have a flat dodge/block chance.
             self.base_stats[UnitStats.BLOCK_CHANCE] = BASE_BLOCK_PARRY_CHANCE / 100  # Players have block scaling, assign flat 5% to creatures.
 
-        self.base_stats[UnitStats.SPEED_RUNNING] = self.unit_mgr.running_speed
+        # Don't overwrite base speed if it has been modified.
+        self.base_stats[UnitStats.SPEED_RUNNING] = self.base_stats.get(UnitStats.SPEED_RUNNING, config.Unit.Defaults.run_speed)
 
         # Players and creatures have an unchanging base 5% chance to block and parry (before defense skill differences).
         # As block chance also scales with strength, the value is calculated in update_base_block_chance.
@@ -186,7 +187,7 @@ class StatManager(object):
     def get_stat_skill_bonus(self, skill_type):  # Avoids circular import with SkillManager
         return self.get_total_stat(UnitStats.SKILL, misc_value=skill_type)
 
-    def apply_bonuses(self, replenish=False):
+    def apply_bonuses(self, replenish=False, set_dirty=True):
         self.calculate_item_stats()
 
         # Always update base attack since unarmed damage should update.
@@ -223,7 +224,8 @@ class StatManager(object):
             if self.unit_mgr.power_type != PowerTypes.TYPE_RAGE:
                 self.unit_mgr.recharge_power()
 
-        self.unit_mgr.set_dirty()
+        if set_dirty:
+            self.unit_mgr.set_dirty()
 
         return hp_diff, mana_diff
 
@@ -805,7 +807,7 @@ CLASS_BASE_REGEN_MANA = {
     Classes.CLASS_DRUID: 15.0
 }
 
-# Vmangos
+# VMaNGOS
 CLASS_BASE_DODGE = {
     Classes.CLASS_DRUID: 0.9,
     Classes.CLASS_MAGE: 3.2,
@@ -815,7 +817,7 @@ CLASS_BASE_DODGE = {
     Classes.CLASS_WARLOCK: 2.0
 }
 
-# Vmangos (level 1, level 60)
+# VMaNGOS (level 1, level 60)
 CLASS_AGILITY_SCALING_DODGE = {
     Classes.CLASS_DRUID: (4.6, 20.0),
     Classes.CLASS_PALADIN: (4.6, 20.0),
