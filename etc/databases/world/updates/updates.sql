@@ -217,5 +217,149 @@ begin not atomic
         insert into applied_updates values ('270820211');
     end if;
 
+    -- 28/08/2021 1
+    if (select count(*) from applied_updates where id='280820211') = 0 then
+        -- # Fix default buttons for new characters
+
+        -- Dwarf Racial not in game (stoneform)
+        DELETE FROM `playercreateinfo_action`
+        WHERE `action`= 20594;
+
+        -- Orc Racial not in game
+        DELETE FROM `playercreateinfo_action`
+        WHERE `action`= 20572;
+
+        -- Undead Racial not in game
+        DELETE FROM `playercreateinfo_action`
+        WHERE `action`= 20577;
+
+        -- Elf Racial not in game
+        DELETE FROM `playercreateinfo_action`
+        WHERE `action`= 20580;
+
+        -- Tauren Racial not in game
+        DELETE FROM `playercreateinfo_action`
+        WHERE `action`= 20549;
+
+        -- Troll Racial not in game
+        DELETE FROM `playercreateinfo_action`
+        WHERE `action`= 26296;
+
+        -- Paladin's seal not in game
+        DELETE FROM `playercreateinfo_action`
+        WHERE `action`= 21084;
+
+        -- we replace button index of Holy Light for paladins all race (cause we deleted seal)
+        UPDATE `playercreateinfo_action`
+        SET `button`=1 WHERE `action`=635;
+
+        -- we decrease by 1 'Find treasure' index for dwarf paladins (cause we moved holy light)
+        UPDATE `playercreateinfo_action`
+        SET `button`=button-1
+        WHERE `action`=2481 AND `race`=3 AND `class`=2;
+
+        -- Dwarf mage was not in 1.12, so we create buttons
+        INSERT INTO `playercreateinfo_action`
+        VALUES  (1,	3,	8,	0,	6603,	0), -- attack
+                (1,	3,	8,	1,	133,	0), -- fireball
+                (1,	3,	8,	2,	168,	0), -- frost armor
+                (1,	3,	8,	10,	159,	128), -- food
+                (1,	3,	8,	11,	4540,	128); -- drink
+
+        ALTER TABLE `playercreateinfo_action` CHANGE COLUMN `action` `action` int(11) NOT NULL DEFAULT 0;
+        UPDATE `playercreateinfo_action` SET `action` = `action` * -1 WHERE `type` = 128;
+        UPDATE `playercreateinfo_action` SET `type` = 255 WHERE `type` = 128;
+
+        insert into applied_updates values ('280820211');
+    end if;
+
+    -- 29/08/2021 1
+    if (select count(*) from applied_updates where id='290820211') = 0 then
+
+        -- # NPC DISPLAY FIX
+
+        -- Grand Admiral Jes-Tereth https://ibb.co/XyvCj5C
+        UPDATE `creature_template` SET `display_id1`=224, `level_min`=90, `level_max`=90 WHERE `entry`=1750;
+
+        -- Mithras Ironhill https://ibb.co/bjVCWfj
+        UPDATE `creature_template` SET `display_id1`=832, `level_min`=90, `level_max`=90 WHERE `entry`=1751;
+
+        -- Argos Nightwhisper, the only unused night elf male model is 2192, but it's not a 100% proof
+        UPDATE `creature_template` SET `display_id1`=2192 WHERE `entry`=4984;
+
+
+        -- # NPC SPAWN FIX
+
+        -- Larimaine Purdue, portal trainer https://ibb.co/5rHtY4w
+        UPDATE `spawns_creatures` SET `position_z`=148.618,`position_x`=-9000.5,`position_y`=872.164,`orientation`=3.239 WHERE `spawn_id`=90441;
+
+        -- Elsharin, mage trainer https://ibb.co/nBTt9GT
+        UPDATE `spawns_creatures` SET `position_z`=148.61,`position_x`=-9010.84,`position_y`=880.065,`orientation`=4.158 WHERE `spawn_id`=90463;
+
+        -- Tannysa Tailoring Trainer https://ibb.co/yQdwJBL
+        UPDATE `spawns_creatures` SET `position_z`=104.946,`position_x`=-8776.7,`position_y`=1005.04,`orientation`=5.811 WHERE `spawn_id`=79825;
+        UPDATE `creature_template` SET `subname`="Tailoring Trainer" WHERE `entry`=5566;
+
+        -- Celmoridan Trainer https://ibb.co/41n7Z4H
+        INSERT INTO `spawns_creatures` values(NULL, 5507, 0, 0, 0, 0, 0, 0, -8788.12, 1119.264, 90.75, 2.797, 300, 300, 0, 100, 0, 0, 0, 0, 0);
+        UPDATE `creature_template` SET `level_min`=35, `level_max`=35 WHERE `entry`=5507;
+
+        -- Strumner Flintheel Trainer https://ibb.co/pzpckG8
+        UPDATE `spawns_creatures` SET `position_y`=645.884,`position_z`=95.129,`orientation`=0.027,`position_x`=-8398.23 WHERE `spawn_id`=2701;
+
+
+        -- # NPC HIDE NOT PRESENTS IN 0.5.3 (set one by one to be more readable)
+
+        -- ################################################
+        -- #  The highest entry I have seen in Stormwind  #
+        -- #    on an NPC probably present in 0.5.3 is    #
+        -- #                  [ 5566 ]                    #
+        -- #           (with unique display id)           #
+        -- #  So all that is above entry must be despawn  #
+        -- ################################################
+
+        -- Shailiea entry 7295
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=90477;
+        -- Brother Sarno entry 7917
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=44022;
+        -- Duthorian Rail entry 6171
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=39536;
+        -- Gazin Tenorm entry 6173
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=39538;
+        -- Shoni the shilent 6579
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=41677;
+        -- Borgus Steelhand 7232
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=42580;
+        -- Tyrion 7766
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=43667;
+        -- Tyrion's Spybot 8856
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=45707;
+        -- Priestess Tyriona 7779
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=43690;
+        -- Bartleby 6090 
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=79750;
+        -- Harry Burlguard 6089
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=79773;
+        -- High Sorcerer Andromath 5694, we can see on mage trainer screenshot, he is despawned
+        UPDATE `spawns_creatures` SET `ignored`=1 WHERE `spawn_id`=90470;
+
+        -- # GAMEOBJECTS HIDE
+        -- Those chairs are not part of 0.5.3
+        UPDATE `spawns_gameobjects` SET `ignored`=1 WHERE `spawn_id` IN (26470, 26471, 26472, 26472, 26473, 26474, 26475, 26476, 26477, 26478);
+        -- Those chairs in Wizard's Sanctum are not part of 0.5.3
+        UPDATE `spawns_gameobjects` SET `ignored`=1 WHERE `spawn_id` IN (42890, 42891, 42892, 42893, 42896);
+
+        insert into applied_updates values('290820211');
+    end if;
+
+    -- 29/08/2021 2
+    if (select count(*) from applied_updates where id='290820212') = 0 then
+        -- Fixes for Stormwind pet trainers.
+        update creature_template set faction = 11, health_min = 992, health_max = 992, mana_max = 992, mana_min = 992, armor = 751, dmg_min = 92, dmg_max = 109, attack_power = 138, base_attack_time = 2000, ranged_attack_time = 2000, ranged_dmg_min = 53.8384, ranged_dmg_max = 74.0278, ranged_attack_power = 100 where entry = 5507;
+        update creature_template set trainer_type = 3, npc_flags = 8 where entry in (5507, 5508);
+        delete from npc_vendor where entry = 5508;
+
+        insert into applied_updates values ('290820212');
+    end if;
 end $
 delimiter ;

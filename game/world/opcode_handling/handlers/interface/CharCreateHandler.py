@@ -3,15 +3,12 @@ from database.realm.RealmDatabaseManager import *
 from database.world.WorldDatabaseManager import *
 from game.world.managers.objects.item.ItemManager import ItemManager
 from game.world.managers.objects.player.ReputationManager import ReputationManager
-from game.world.managers.objects.player.SkillManager import SkillManager, SkillTypes
 from network.packet.PacketReader import *
 from network.packet.PacketWriter import *
 from utils import TextUtils
 from utils.ConfigManager import config
 from utils.constants.CharCodes import *
 from utils.constants.ItemCodes import InventorySlots
-from utils.constants.MiscCodes import SkillCategories
-from utils.constants.SpellCodes import SpellEffects
 from utils.constants.UnitCodes import Classes
 
 
@@ -79,7 +76,7 @@ class CharCreateHandler(object):
             CharCreateHandler.generate_starting_reputations(character.guid)
             CharCreateHandler.generate_starting_spells(character.guid, race, class_, character.level)
             CharCreateHandler.generate_starting_items(character.guid, race, class_, gender)
-            CharCreateHandler.generate_starting_buttons(character.guid)
+            CharCreateHandler.generate_starting_buttons(character.guid, race, class_)
             CharCreateHandler.generate_starting_taxi_nodes(character, race)
             default_deathbind = CharacterDeathbind(
                 player_guid=character.guid,
@@ -102,14 +99,15 @@ class CharCreateHandler(object):
         info = WorldDatabaseManager.player_create_info_get(race, class_)
         return info.map, info.zone, info.position_x, info.position_y, info.position_z, info.orientation
 
-    # TODO: Generate starting action buttons based on race/class.
     @staticmethod
-    def generate_starting_buttons(guid):
-        button = CharacterButton()
-        button.owner = guid
-        button.index = 0
-        button.action = 6603
-        RealmDatabaseManager.character_add_button(button)
+    def generate_starting_buttons(guid, race, class_):
+        for action in WorldDatabaseManager.player_create_action_get(race, class_):
+            button = CharacterButton()
+            button.owner = guid
+            button.index = action.button
+            button.action = action.action
+
+            RealmDatabaseManager.character_add_button(button)
 
     @staticmethod
     def generate_starting_taxi_nodes(character, race):
