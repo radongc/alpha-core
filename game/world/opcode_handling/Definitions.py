@@ -114,6 +114,7 @@ from game.world.opcode_handling.handlers.player.cheats.GodModeHandler import God
 from game.world.opcode_handling.handlers.player.cheats.SpeedCheatHandler import SpeedCheatHandler
 from game.world.opcode_handling.handlers.player.cheats.CheatSetMoneyHandler import CheatSetMoneyHandler
 from game.world.opcode_handling.handlers.player.cheats.LevelCheatHandler import LevelCheatHandler
+from game.world.opcode_handling.handlers.player.cheats.GmSummonHandler import GmSummonHandler
 from game.world.opcode_handling.handlers.player.cheats.LevelUpCheatHandler import LevelUpCheatHandler
 from game.world.opcode_handling.handlers.player.cheats.LearnSpellCheatHandler import LearnSpellCheatHandler
 from game.world.opcode_handling.handlers.player.cheats.CooldownCheatHandler import CooldownCheatHandler
@@ -331,6 +332,7 @@ HANDLER_DEFINITIONS = {
     OpCode.CMSG_NEW_SPELL_SLOT: NewSpellSlotHandler.handle,
     OpCode.CMSG_SETDEATHBINDPOINT: SetDeathBindPointHandler.handle,
     OpCode.CMSG_GETDEATHBINDZONE: GetDeathBindPointHandler.handle,
+    OpCode.MSG_GM_SUMMON: GmSummonHandler.handle,
     OpCode.CMSG_BOOTME: BootMeHandler.handle,
     OpCode.CMSG_PET_ACTION: PetActionHandler.handle,
     OpCode.CMSG_PET_SET_ACTION: PetSetActionHandler.handle,
